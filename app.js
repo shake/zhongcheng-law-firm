@@ -909,6 +909,9 @@ function initLaborLawChat() {
           result = await signUpAttempt.attemptEmailAddressVerification({ code });
           if (result.status === "complete") {
             await window.Clerk.setActive({ session: result.createdSessionId });
+          } else if (result.status === "missing_requirements") {
+            const missing = signUpAttempt.missingFields || [];
+            throw new Error(`注册未完成。Clerk 提示缺失必填项: ${missing.join(', ')}。请前往 Clerk 仪表盘关闭这些必填项，或开启无密码验证模式。`);
           } else {
             throw new Error(`Verification status: ${result.status}`);
           }
@@ -916,6 +919,9 @@ function initLaborLawChat() {
           result = await signInAttempt.attemptFirstFactor({ strategy: "email_code", code });
           if (result.status === "complete") {
             await window.Clerk.setActive({ session: result.createdSessionId });
+          } else if (result.status === "missing_requirements") {
+            const missing = signInAttempt.missingFields || [];
+            throw new Error(`登录未完成。Clerk 提示缺失必填项: ${missing.join(', ')}。`);
           } else {
             throw new Error(`Verification status: ${result.status}`);
           }
