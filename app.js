@@ -17,6 +17,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initLaborLawChat();
 });
 
+// Initialize Clerk SDK on window load
+window.addEventListener('load', async () => {
+  if (window.Clerk) {
+    try {
+      await window.Clerk.load();
+      console.log('Clerk SDK loaded successfully');
+    } catch (err) {
+      console.error('Clerk SDK failed to load:', err);
+    }
+  }
+});
+
 /**
  * 1. Header Scroll Adaptation
  */
