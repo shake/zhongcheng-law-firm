@@ -92,8 +92,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 下面是为您检索到的【参考劳动法条款】：
 ${lawContext}`;
 
-    // 8. Stream from Gemini 1.5 Flash using Native Fetch
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
+    // 8. Stream from Gemini 1.5 Flash using stable v1 API
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
     
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
