@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中成律师事务所 | 劳动法智能研判归档系统</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .admin-page-body {
+      background-color: var(--background);
+      color: var(--foreground);
+      padding: var(--space-xl) 0;
+      font-family: var(--font-sans);
+    }
+    .admin-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 var(--space-md);
+    }
+    .admin-header {
+      border-bottom: 2px double var(--border-dark);
+      padding-bottom: var(--space-md);
+      margin-bottom: var(--space-xl);
+      text-align: center;
+    }
+    .admin-header h1 {
+      font-family: var(--font-serif);
+      font-weight: 900;
+      font-size: 2rem;
+      color: var(--primary);
+      margin-bottom: var(--space-xs);
+    }
+    .admin-header p {
+      font-size: 0.85rem;
+      color: var(--foreground-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+    .log-table-container {
+      background-color: var(--background-alt);
+      border: 2px solid var(--border-dark);
+      overflow-x: auto;
+    }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+    .log-table th {
+      background-color: var(--background);
+      border-bottom: 2px solid var(--border-dark);
+      padding: 15px 20px;
+      font-family: var(--font-serif);
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .log-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 15px 20px;
+      vertical-align: top;
+    }
+    .log-table tr:hover {
+      background-color: var(--background);
+    }
+    .log-time {
+      white-space: nowrap;
+      color: var(--foreground-muted);
+      font-size: 0.8rem;
+    }
+    .log-email {
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+    .log-question {
+      font-weight: 500;
+      max-width: 300px;
+      word-break: break-all;
+    }
+    .log-action-btn {
+      background: none;
+      border: 1px solid var(--border-dark);
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+    .log-action-btn:hover {
+      background-color: var(--primary);
+      color: #ffffff;
+    }
+    
+    /* Drawer Detail View */
+    .detail-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .detail-overlay.active {
+      display: flex;
+    }
+    .detail-container {
+      background-color: var(--background-alt);
+      border: 2px solid var(--border-dark);
+      width: 750px;
+      max-width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+    .detail-header {
+      padding: 20px;
+      border-bottom: 2px double var(--border-dark);
+      background-color: var(--background);
+      position: sticky;
+      top: 0;
+    }
+    .detail-header h3 {
+      font-family: var(--font-serif);
+      font-weight: 900;
+      font-size: 1.25rem;
+      color: var(--primary);
+      margin: 0;
+    }
+    .detail-close-btn {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      line-height: 1;
+      color: var(--foreground-muted);
+    }
+    .detail-close-btn:hover {
+      color: var(--accent);
+    }
+    .detail-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .detail-section {
+      border-bottom: 1px dotted var(--border-dark);
+      padding-bottom: 15px;
+    }
+    .detail-section:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .detail-section-title {
+      font-family: var(--font-serif);
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .detail-text {
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .detail-response {
+      background-color: var(--background);
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--border-dark);
+      border-radius: 4px;
+    }
+    .detail-response p {
+      margin-bottom: 10px;
+    }
+    .detail-response p:last-child {
+      margin-bottom: 0;
+    }
+    .detail-response ul, .detail-response ol {
+      padding-left: 20px;
+      margin-bottom: 10px;
+    }
+    .detail-response h3, .detail-response h4 {
+      font-family: var(--font-serif);
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 15px;
+      margin-bottom: 5px;
+    }
+    .detail-response h3 {
+      font-size: 1rem;
+      border-bottom: 1px dotted var(--border);
+      padding-bottom: 2px;
+    }
+  </style>
+</head>
+<body class="admin-page-body">
+
+  <div class="admin-container">
+    
+    <header class="admin-header">
+      <h1>中成律师事务所</h1>
+      <p>劳动法智能研判咨询归档系统 · Archive Logs</p>
+    </header>
+
+    <div class="log-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>咨询时间</th>
+            <th>用户信箱</th>
+            <th>咨询问题</th>
+            <th style="text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="logs-tbody">
+          <tr>
+            <td colspan="4" style="text-align: center; padding: 30px; color: var(--foreground-muted);">
+              正在加载历史咨询档案...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Detail Dialog Modal -->
+  <div class="detail-overlay" id="detail-overlay">
+    <div class="detail-container">
+      <button class="detail-close-btn" id="detail-close-btn">&times;</button>
+      <div class="detail-header">
+        <h3>⚖ 咨询档案详细卷宗</h3>
+      </div>
+      <div class="detail-body">
+        <div class="detail-section">
+          <div class="detail-section-title">基本信息</div>
+          <div class="detail-text">
+            <strong>咨询账户：</strong><span id="detail-email" class="log-email"></span> &nbsp;&nbsp;&nbsp;&nbsp;
+            <strong>归档时间：</strong><span id="detail-time" class="log-time"></span>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <div class="detail-section-title">劳动者陈述原问题</div>
+          <div class="detail-text" id="detail-question" style="font-weight: 500;"></div>
+        </div>
+        
+        <div class="detail-section">
+          <div class="detail-section-title">AI 律师正式研判意见书</div>
+          <div class="detail-response" id="detail-response"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const tbody = document.getElementById('logs-tbody');
+      const overlay = document.getElementById('detail-overlay');
+      const closeBtn = document.getElementById('detail-close-btn');
+      
+      const detailEmail = document.getElementById('detail-email');
+      const detailTime = document.getElementById('detail-time');
+      const detailQuestion = document.getElementById('detail-question');
+      const detailResponse = document.getElementById('detail-response');
+
+      let currentLogs = [];
+
+      // Load records on start
+      fetch('/api/admin/logs')
+        .then(res => {
+          if (!res.ok) throw new Error('接口状态异常');
+          return res.json();
+        })
+        .then(data => {
+          if (!data.success) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--accent); padding: 30px;">❌ 加载失败: ${data.error}</td></tr>`;
+            return;
+          }
+          
+          currentLogs = data.logs || [];
+          if (currentLogs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--foreground-muted); padding: 30px;">📭 目前暂无任何劳动法咨询记录</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = '';
+          currentLogs.forEach((log, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="log-time">${log.created_at}</td>
+              <td class="log-email">${log.email}</td>
+              <td class="log-question">${escapeHtml(log.question)}</td>
+              <td style="text-align: center; vertical-align: middle;">
+                <button class="log-action-btn" onclick="viewDetail(${index})">查阅卷宗</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        })
+        .catch(err => {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--accent); padding: 30px;">❌ 无法获取归档数据: ${err.message}</td></tr>`;
+        });
+
+      // View details in modal
+      window.viewDetail = (index) => {
+        const log = currentLogs[index];
+        if (!log) return;
+
+        detailEmail.textContent = log.email;
+        detailTime.textContent = log.created_at;
+        detailQuestion.textContent = log.question;
+        detailResponse.innerHTML = formatMarkdown(log.response);
+
+        overlay.classList.add('active');
+      };
+
+      // Close modal
+      closeBtn.addEventListener('click', () => {
+        overlay.classList.remove('active');
+      });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        return text
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function formatMarkdown(text) {
+        if (!text) return '';
+        let html = text;
+        // Headings
+        html = html.replace(/###\s+(.*?)(?=\n|$)/g, '<h4>$1</h4>');
+        html = html.replace(/##\s+(.*?)(?=\n|$)/g, '<h3>$1</h3>');
+        // Bold
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // Bullet Lists
+        html = html.replace(/^\s*-\s+(.*?)(?=\n|$)/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
+        // Paragraphs
+        html = html.split('\n\n').map(p => {
+          p = p.trim();
+          if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<li')) return p;
+          return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+        }).join('\n');
+        return html;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -3,6 +3,7 @@ interface Env {
   AI: any;
   GEMINI_API_KEY: string;
   CLERK_SECRET_KEY?: string;
+  DB?: any; // Cloudflare D1 Database binding
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -247,6 +248,7 @@ ${lawContext}
 
     (async () => {
       let buffer = '';
+      let fullResponseText = '';
       try {
         while (reader) {
           const { done, value } = await reader.read();
@@ -256,8 +258,21 @@ ${lawContext}
 
           const textTokens = extractTextFromGeminiChunk(buffer);
           if (textTokens) {
+            fullResponseText += textTokens;
             await writer.write(encoder.encode(textTokens));
             buffer = ''; 
+          }
+        }
+
+        // Write the completed conversation to Cloudflare D1
+        if (env.DB) {
+          try {
+            await env.DB.prepare(
+              "INSERT INTO consultation_logs (email, question, response) VALUES (?, ?, ?)"
+            ).bind(userEmail, message, fullResponseText).run();
+            console.log(`[D1 LOG SUCCESS] Written consultation log for ${userEmail}`);
+          } catch (d1Err) {
+            console.error("Failed to write log to Cloudflare D1 database:", d1Err);
           }
         }
       } catch (err: any) {
