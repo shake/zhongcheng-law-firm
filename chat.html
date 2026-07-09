@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中成律师事务所 | 劳动法智能研判室</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="chat.css">
+  
+  <!-- Clerk SDK -->
+  <script 
+    async 
+    crossorigin="anonymous" 
+    data-clerk-publishable-key="pk_test_YWNlLWNvbHQtOTAuY2xlcmsuYWNjb3VudHMuZGV2JA" 
+    src="https://ace-colt-90.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" 
+    type="text/javascript">
+  </script>
+</head>
+<body class="chat-page-body">
+
+  <div class="chat-page-container">
+    
+    <!-- 1. Left Sidebar -->
+    <aside class="chat-sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-logo">
+          <span class="logo-title">中成律师事务所</span>
+          <span class="logo-sub">THE ZHONGCHENG LAW REVIEW</span>
+        </a>
+      </div>
+      
+      <div class="sidebar-content">
+        <div class="sidebar-section">
+          <h4>劳动法 AI 智能首诊室</h4>
+          <p>本研判室依托《中华人民共和国劳动法》及《劳动合同法》全本数据库，为劳动者提供即时的争议分析、法理定位与行动指南。</p>
+        </div>
+        
+        <div class="sidebar-section">
+          <h4>劳动争议维权指南</h4>
+          <ul class="guide-list">
+            <li><strong>关键证据保留：</strong>工时记录、打卡记录、工资单、社保缴纳证明、绩效考核表、解除劳动合同通知书。</li>
+            <li><strong>法定维权时效：</strong>劳动争议申请仲裁的时效期间为一年，自劳动者知道或者应当知道其权利被侵害之日起计算。</li>
+            <li><strong>前置协商：</strong>可优先向公司人力资源或工会协商；协商不成可向劳动监察大队投诉，或直接申请劳动仲裁。</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="sidebar-footer">
+        <a href="index.html" class="btn btn-secondary" style="width: 100%; text-align: center; border-style: dashed; padding: 10px;">返回律所首页</a>
+      </div>
+    </aside>
+    
+    <!-- 2. Right Chat Main Area -->
+    <main class="chat-main-area">
+      <!-- Top navbar inside chat -->
+      <header class="chat-main-header">
+        <div class="chat-room-title">⚖ 劳动法学术合规研判通道</div>
+        <div class="chat-user-status" id="chat-user-status">
+          <!-- Loaded dynamically -->
+          <span class="user-email">正在检测登录状态...</span>
+          <button class="logout-btn" id="logout-btn" style="display: none;">注销</button>
+        </div>
+      </header>
+      
+      <!-- Messages view -->
+      <section class="chat-messages-container" id="chat-messages">
+        <div class="message system-message">
+          <h3>欢迎进入劳动法智能研判室</h3>
+          <p>您好！我是您的智能劳动法咨询顾问。您可以输入您面临的劳动争议问题，例如：</p>
+          <ul style="margin-top: 5px;">
+            <li>“试用期被无故辞退，可以要求赔偿吗？”</li>
+            <li>“公司不发加班工资，我应该收集哪些证据？”</li>
+            <li>“劳动合同试用期最长可以约定几个月？”</li>
+          </ul>
+          <p style="margin-top: 10px; font-size: 0.75rem; color: var(--foreground-muted);">系统已自动挂载最新《劳动法》数据库，您的提问将与您的邮箱安全绑定并仅作学术分析。</p>
+        </div>
+      </section>
+      
+      <!-- Input bar -->
+      <footer class="chat-input-container">
+        <form class="chat-input-form" id="chat-input-form">
+          <input type="text" id="chat-input-field" class="chat-input-input" placeholder="请输入您的劳动争议详情或提问..." required autocomplete="off">
+          <button type="submit" class="chat-submit-btn" id="chat-submit-btn">发送研判</button>
+        </form>
+        <div class="chat-disclaimer">
+          声明：本研判室基于AI与公开法律条文生成，仅供学术探讨与指引参考，不构成正式代理或法律意见书。
+        </div>
+      </footer>
+    </main>
+    
+  </div>
+
+  <!-- ==========================================
+       LABOR LAW CHAT AUTH MODAL (Popups if not logged in)
+       ========================================== -->
+  <div class="editorial-modal-overlay" id="auth-modal">
+    <div class="editorial-modal-container" style="max-width: 420px; text-align: left;">
+      <button class="modal-close-btn" id="auth-close-btn" aria-label="Close modal">&times;</button>
+      <div class="modal-header" style="border-bottom: 2px double var(--border-dark); padding-bottom: var(--space-sm);">
+        <span class="modal-subtitle">用户认证与安全绑定</span>
+        <h3 class="modal-title" style="font-family: var(--font-serif); font-size: 1.35rem; font-weight: 900;">劳动法咨询首诊认证</h3>
+      </div>
+      <div class="modal-body" style="padding-top: var(--space-md);">
+        <p style="font-size: 0.82rem; line-height: 1.6; color: var(--foreground-muted); margin-bottom: var(--space-md);">
+          为防止恶意刷流量，保护学术研判算力，同时将您的历史咨询与电子信箱进行永久绑定，请验证您的电子邮箱。
+        </p>
+        
+        <!-- Step 1: Input Email Form -->
+        <div id="auth-step-email">
+          <div class="form-group">
+            <label for="auth-email" class="form-label" style="font-size: 0.8rem;">电子邮箱地址 *</label>
+            <input type="email" id="auth-email" class="form-control" placeholder="example@domain.com" required style="margin-top: 5px;">
+            <span class="form-feedback" id="auth-email-feedback">请输入有效的电子信箱</span>
+          </div>
+          <button type="button" class="btn btn-primary" id="auth-get-code-btn" style="width: 100%; margin-top: var(--space-md);">获取邮箱验证码</button>
+        </div>
+
+        <!-- Step 2: Input Verification Code Form -->
+        <div id="auth-step-code" style="display: none;">
+          <div class="form-group">
+            <label for="auth-code" class="form-label" style="font-size: 0.8rem;">6位验证码 *</label>
+            <input type="text" id="auth-code" class="form-control" placeholder="输入 6 位数字验证码" maxlength="6" required style="margin-top: 5px; text-align: center; letter-spacing: 0.2em; font-weight: 700;">
+            <span class="form-feedback" id="auth-code-feedback">验证码格式错误或已失效</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--foreground-muted); margin-top: -5px; margin-bottom: var(--space-md); text-align: right;" id="auth-sent-hint">
+            已向您的邮箱发送了验证码，请查收。
+          </div>
+          <button type="button" class="btn btn-primary" id="auth-verify-code-btn" style="width: 100%;">验证并开启咨询</button>
+          <button type="button" class="btn btn-secondary" id="auth-back-btn" style="width: 100%; margin-top: var(--space-sm); border-style: dashed;">返回修改邮箱</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="chat.js"></script>
+</body>
+</html>
