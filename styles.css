@@ -1103,7 +1103,7 @@ textarea.form-control {
 .ticker-scroll {
   display: flex;
   white-space: nowrap;
-  animation: ticker-scrolling 35s linear infinite;
+  animation: ticker-scrolling 70s linear infinite;
 }
 .ticker-scroll:hover {
   animation-play-state: paused;
