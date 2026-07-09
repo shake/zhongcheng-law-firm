@@ -95,8 +95,8 @@ ${lawContext}
 用户提问的问题是：
 "${message}"`;
 
-    // 8. Stream from Gemini 1.5 Flash using stable v1 API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
+    // 8. Stream from Gemini 1.5 Flash using stable v1beta API
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
     
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
