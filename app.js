@@ -699,51 +699,275 @@ function initBreakingTicker() {
 }
 
 /**
- * 11. Labor Law AI Q&A Chat Widget Interaction
+ * 11. Labor Law AI Q&A Chat Widget & Authentication Interaction
  */
 function initLaborLawChat() {
   const bubbleBtn = document.getElementById('chat-bubble-btn');
+  const navLinkChat = document.getElementById('nav-link-chat');
+  const mobileLinkChat = document.getElementById('mobile-link-chat');
+  
   const chatWindow = document.getElementById('chat-window');
   const closeBtn = document.getElementById('chat-close-btn');
   const chatForm = document.getElementById('chat-input-form');
   const chatInputField = document.getElementById('chat-input-field');
   const chatMessages = document.getElementById('chat-messages');
 
-  if (!bubbleBtn || !chatWindow || !chatForm || !chatInputField || !chatMessages) return;
+  // Auth Modal Elements
+  const authModal = document.getElementById('auth-modal');
+  const authCloseBtn = document.getElementById('auth-close-btn');
+  const authEmailInput = document.getElementById('auth-email');
+  const authCodeInput = document.getElementById('auth-code');
+  const authGetCodeBtn = document.getElementById('auth-get-code-btn');
+  const authVerifyCodeBtn = document.getElementById('auth-verify-code-btn');
+  const authBackBtn = document.getElementById('auth-back-btn');
+  const authStepEmail = document.getElementById('auth-step-email');
+  const authStepCode = document.getElementById('auth-step-code');
+  
+  // Validation Feedbacks
+  const emailFeedback = document.getElementById('auth-email-feedback');
+  const codeFeedback = document.getElementById('auth-code-feedback');
+  const sentHint = document.getElementById('auth-sent-hint');
 
-  // Toggle Chat window open/close
-  bubbleBtn.addEventListener('click', () => {
-    chatWindow.classList.toggle('active');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  });
+  if (!bubbleBtn || !chatWindow || !chatForm || !chatInputField || !chatMessages || !authModal) return;
 
+  // State tracker for Clerk session or mock session
+  let signUpAttempt = null;
+  let signInAttempt = null;
+  let isSignUpFlow = false;
+  let targetEmail = '';
+
+  const isUserAuthenticated = () => {
+    // 1. Check Clerk SDK authentication state
+    if (window.Clerk && window.Clerk.user) {
+      return true;
+    }
+    // 2. Check local mock session
+    if (localStorage.getItem('mock_user_email')) {
+      return true;
+    }
+    return false;
+  };
+
+  const getAuthenticatedEmail = () => {
+    if (window.Clerk && window.Clerk.user) {
+      return window.Clerk.user.primaryEmailAddress?.emailAddress || 'authenticated_user';
+    }
+    return localStorage.getItem('mock_user_email') || '';
+  };
+
+  const triggerAccess = () => {
+    if (isUserAuthenticated()) {
+      // Authenticated -> open Chat window
+      chatWindow.classList.add('active');
+      
+      // Update welcome message if email is stored
+      const email = getAuthenticatedEmail();
+      const firstMsg = chatMessages.querySelector('.system-message');
+      if (firstMsg && email) {
+        firstMsg.innerHTML = `您好！您的账号 <strong>${email}</strong> 已验证绑定。您可以向我咨询任何关于试用期长度、加班工资、解除补偿金或社保争议等劳动法相关问题。我将为您检索最新的《中华人民共和国劳动法》及《劳动合同法》条文并进行合规解答。`;
+      }
+      
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    } else {
+      // Unauthenticated -> open Auth modal
+      openAuthModal();
+    }
+  };
+
+  // Click triggers
+  bubbleBtn.addEventListener('click', triggerAccess);
+  if (navLinkChat) navLinkChat.addEventListener('click', triggerAccess);
+  if (mobileLinkChat) mobileLinkChat.addEventListener('click', triggerAccess);
+
+  // Close Chat Window
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       chatWindow.classList.remove('active');
     });
   }
 
-  // Handle Form Submission
+  // Close Auth Modal
+  if (authCloseBtn) {
+    authCloseBtn.addEventListener('click', closeAuthModal);
+  }
+
+  // --- Auth Modal Flow Functions ---
+  function openAuthModal() {
+    authModal.classList.add('active');
+    resetAuthModal();
+  }
+
+  function closeAuthModal() {
+    authModal.classList.remove('active');
+  }
+
+  function resetAuthModal() {
+    authStepEmail.style.display = 'block';
+    authStepCode.style.display = 'none';
+    authEmailInput.value = '';
+    authCodeInput.value = '';
+    emailFeedback.style.display = 'none';
+    codeFeedback.style.display = 'none';
+    authGetCodeBtn.disabled = false;
+    authGetCodeBtn.textContent = '获取邮箱验证码';
+    authVerifyCodeBtn.disabled = false;
+    authVerifyCodeBtn.textContent = '验证并开启咨询';
+  }
+
+  // Action 1: Get Code (Step 1 -> Step 2)
+  authGetCodeBtn.addEventListener('click', async () => {
+    const email = authEmailInput.value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!email || !emailRegex.test(email)) {
+      emailFeedback.style.display = 'block';
+      authEmailInput.focus();
+      return;
+    }
+    emailFeedback.style.display = 'none';
+    targetEmail = email;
+
+    authGetCodeBtn.disabled = true;
+    authGetCodeBtn.textContent = '正在获取...';
+
+    // Mock Mode vs Clerk Mode
+    const useClerk = !!(window.Clerk && window.Clerk.client);
+
+    try {
+      if (useClerk) {
+        // --- REAL CLERK FLOW ---
+        try {
+          // 1. Try to sign in first (assuming user might already exist)
+          signInAttempt = await window.Clerk.client.signIn.create({ identifier: email });
+          const factor = signInAttempt.supportedFirstFactors.find(f => f.strategy === "email_code");
+          await signInAttempt.prepareFirstFactor({ strategy: "email_code", emailAddressId: factor.emailAddressId });
+          isSignUpFlow = false;
+        } catch (err) {
+          // If user doesn't exist, create a sign up attempt
+          if (err.errors && err.errors[0].code === 'form_identifier_not_found') {
+            signUpAttempt = await window.Clerk.client.signUp.create({ emailAddress: email });
+            await signUpAttempt.prepareEmailAddressVerification();
+            isSignUpFlow = true;
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // --- MOCK MODE FLOW (Fallback) ---
+        await new Promise(resolve => setTimeout(resolve, 1200)); // Simulate edge roundtrip
+        console.log(`[Mock Auth] Verification code sent to ${email} (Use any 6-digit code to verify).`);
+      }
+
+      // Transition to code step
+      sentHint.textContent = `已向您的邮箱 ${email} 发送了验证码，请查收。`;
+      authStepEmail.style.display = 'none';
+      authStepCode.style.display = 'block';
+      authCodeInput.focus();
+
+    } catch (error) {
+      console.error('Send verification code error:', error);
+      authGetCodeBtn.disabled = false;
+      authGetCodeBtn.textContent = '获取邮箱验证码';
+      emailFeedback.textContent = error.message || '获取验证码失败，请重试';
+      emailFeedback.style.display = 'block';
+    }
+  });
+
+  // Action 2: Verify Code
+  authVerifyCodeBtn.addEventListener('click', async () => {
+    const code = authCodeInput.value.trim();
+    if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+      codeFeedback.textContent = '请输入完整的6位数字验证码';
+      codeFeedback.style.display = 'block';
+      authCodeInput.focus();
+      return;
+    }
+    codeFeedback.style.display = 'none';
+
+    authVerifyCodeBtn.disabled = true;
+    authVerifyCodeBtn.textContent = '校验中...';
+
+    const useClerk = !!(window.Clerk && window.Clerk.client);
+
+    try {
+      if (useClerk) {
+        // --- REAL CLERK FLOW ---
+        let result;
+        if (isSignUpFlow) {
+          result = await signUpAttempt.attemptEmailAddressVerification({ code });
+          if (result.status === "complete") {
+            await window.Clerk.setActive({ session: result.createdSessionId });
+          } else {
+            throw new Error(`Verification status: ${result.status}`);
+          }
+        } else {
+          result = await signInAttempt.attemptFirstFactor({ strategy: "email_code", code });
+          if (result.status === "complete") {
+            await window.Clerk.setActive({ session: result.createdSessionId });
+          } else {
+            throw new Error(`Verification status: ${result.status}`);
+          }
+        }
+      } else {
+        // --- MOCK MODE FLOW (Fallback) ---
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        localStorage.setItem('mock_user_email', targetEmail);
+      }
+
+      // Success -> Close Auth Modal & Open Chat
+      closeAuthModal();
+      triggerAccess();
+
+    } catch (error) {
+      console.error('Verify code error:', error);
+      authVerifyCodeBtn.disabled = false;
+      authVerifyCodeBtn.textContent = '验证并开启咨询';
+      codeFeedback.textContent = '验证码错误或已过期，请重新输入';
+      codeFeedback.style.display = 'block';
+    }
+  });
+
+  // Action 3: Go Back to Email Step
+  authBackBtn.addEventListener('click', () => {
+    authStepEmail.style.display = 'block';
+    authStepCode.style.display = 'none';
+    authCodeInput.value = '';
+    codeFeedback.style.display = 'none';
+    authGetCodeBtn.disabled = false;
+    authGetCodeBtn.textContent = '获取邮箱验证码';
+  });
+
+  // --- Chat Submission Handling ---
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = chatInputField.value.trim();
     if (!query) return;
 
-    // Append User Message to UI
+    // Double check authentication
+    if (!isUserAuthenticated()) {
+      chatWindow.classList.remove('active');
+      openAuthModal();
+      return;
+    }
+
     appendChatMessage('user', query);
     chatInputField.value = '';
 
-    // Show Loading Skeleton
     const loadingMessageElement = appendChatMessage('loading', '中成律师正在为您检索劳动法条并进行合规研判...');
 
     try {
-      // Retrieve Clerk Token if Clerk is initialized, otherwise use developer dummy token
       let token = 'dummy-development-token';
       if (window.Clerk && window.Clerk.session) {
         token = await window.Clerk.session.getToken();
+      } else {
+        // Send a custom header or token with user email in mock mode
+        const mockPayload = {
+          email: getAuthenticatedEmail(),
+          exp: Math.floor(Date.now() / 1000) + 3600
+        };
+        token = `mock-token.${btoa(JSON.stringify(mockPayload))}.signature`;
       }
 
-      // Call Streaming Chat API
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -753,7 +977,6 @@ function initLaborLawChat() {
         body: JSON.stringify({ message: query })
       });
 
-      // Remove loading message
       loadingMessageElement.remove();
 
       if (!response.ok) {
@@ -768,11 +991,9 @@ function initLaborLawChat() {
         return;
       }
 
-      // Stream Reader
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       
-      // Append an empty AI message block to fill in dynamically
       const aiMessageElement = appendChatMessage('ai', '');
       let fullResponseText = '';
 
@@ -783,7 +1004,6 @@ function initLaborLawChat() {
         const chunk = decoder.decode(value, { stream: true });
         fullResponseText += chunk;
 
-        // Render formatted HTML (simple markdown to HTML conversion)
         aiMessageElement.innerHTML = formatMarkdown(fullResponseText);
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
@@ -794,7 +1014,6 @@ function initLaborLawChat() {
     }
   });
 
-  // Helper to append message bubble to UI
   function appendChatMessage(sender, text) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${sender}-message`;
@@ -804,25 +1023,18 @@ function initLaborLawChat() {
     return msgDiv;
   }
 
-  // Simple RegExp Markdown Parser for Edge clients
   function formatMarkdown(text) {
     let html = text;
-    // Replace Headings: ### title and ## title
     html = html.replace(/###\s+(.*?)(?=\n|$)/g, '<h4>$1</h4>');
     html = html.replace(/##\s+(.*?)(?=\n|$)/g, '<h3>$1</h3>');
-    // Replace Bold: **text**
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    // Replace Bullet Lists: - item
     html = html.replace(/^\s*-\s+(.*?)(?=\n|$)/gm, '<li>$1</li>');
-    // Wrap lists in <ul> tags (simple pass)
     html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
-    // Replace Paragraphs (split by double newlines)
     html = html.split('\n\n').map(p => {
       p = p.trim();
       if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<li')) return p;
       return `<p>${p.replace(/\n/g, '<br>')}</p>`;
     }).join('\n');
-
     return html;
   }
 }

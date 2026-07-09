@@ -38,6 +38,7 @@
         <a href="#attorneys" class="nav-link">律师团队</a>
         <a href="#testimonials" class="nav-link">业界口碑</a>
         <a href="#contact" class="nav-link">预约专访</a>
+        <a href="javascript:void(0)" class="nav-link" id="nav-link-chat" style="color: var(--accent); font-weight: 700;">劳动法咨询</a>
         <div class="mobile-toggle" id="mobile-menu-toggle" aria-label="Toggle menu" role="button" tabindex="0">
           <span></span>
           <span></span>
@@ -73,6 +74,7 @@
     <a href="#attorneys" class="nav-link" id="mobile-link-attorneys">律师团队</a>
     <a href="#testimonials" class="nav-link" id="mobile-link-testimonials">业界口碑</a>
     <a href="#contact" class="nav-link" id="mobile-link-contact">预约专访</a>
+    <a href="javascript:void(0)" class="nav-link" id="mobile-link-chat" style="color: var(--accent); font-weight: 700;">劳动法咨询</a>
   </div>
 
   <main>
@@ -616,6 +618,48 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="modal-cancel-btn">返回查阅</button>
         <button class="btn btn-primary" id="modal-book-btn">预约该板块专访研判</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       LABOR LAW CHAT AUTH MODAL
+       ========================================== -->
+  <div class="editorial-modal-overlay" id="auth-modal">
+    <div class="editorial-modal-container" style="max-width: 420px; text-align: left;">
+      <button class="modal-close-btn" id="auth-close-btn" aria-label="Close modal">&times;</button>
+      <div class="modal-header" style="border-bottom: 2px double var(--border-dark); padding-bottom: var(--space-sm);">
+        <span class="modal-subtitle">用户认证与安全绑定</span>
+        <h3 class="modal-title" style="font-family: var(--font-serif); font-size: 1.35rem; font-weight: 900;">劳动法咨询首诊认证</h3>
+      </div>
+      <div class="modal-body" style="padding-top: var(--space-md);">
+        <p style="font-size: 0.82rem; line-height: 1.6; color: var(--foreground-muted); margin-bottom: var(--space-md);">
+          为防止恶意刷流量，保护学术研判算力，同时将您的历史咨询与电子信箱进行永久绑定，请验证您的电子邮箱。
+        </p>
+        
+        <!-- Step 1: Input Email Form -->
+        <div id="auth-step-email">
+          <div class="form-group">
+            <label for="auth-email" class="form-label" style="font-size: 0.8rem;">电子邮箱地址 *</label>
+            <input type="email" id="auth-email" class="form-control" placeholder="example@domain.com" required style="margin-top: 5px;">
+            <span class="form-feedback" id="auth-email-feedback">请输入有效的电子信箱</span>
+          </div>
+          <button type="button" class="btn btn-primary" id="auth-get-code-btn" style="width: 100%; margin-top: var(--space-md);">获取邮箱验证码</button>
+        </div>
+
+        <!-- Step 2: Input Verification Code Form (Hidden initially) -->
+        <div id="auth-step-code" style="display: none;">
+          <div class="form-group">
+            <label for="auth-code" class="form-label" style="font-size: 0.8rem;">6位验证码 *</label>
+            <input type="text" id="auth-code" class="form-control" placeholder="输入 6 位数字验证码" maxlength="6" required style="margin-top: 5px; text-align: center; letter-spacing: 0.2em; font-weight: 700;">
+            <span class="form-feedback" id="auth-code-feedback">验证码格式错误或已失效</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--foreground-muted); margin-top: -5px; margin-bottom: var(--space-md); text-align: right;" id="auth-sent-hint">
+            已向您的邮箱发送了验证码，请查收。
+          </div>
+          <button type="button" class="btn btn-primary" id="auth-verify-code-btn" style="width: 100%;">验证并开启咨询</button>
+          <button type="button" class="btn btn-secondary" id="auth-back-btn" style="width: 100%; margin-top: var(--space-sm); border-style: dashed;">返回修改邮箱</button>
+        </div>
       </div>
     </div>
   </div>

@@ -42,6 +42,26 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Decode user email from JWT token payload to bind subsequent questions
+    let userEmail = 'anonymous@zhongchenglaw.com';
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payloadDecoded = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadDecoded);
+        if (payload.email) {
+          userEmail = payload.email;
+        } else if (payload.sub) {
+          userEmail = `clerk_user_id_${payload.sub}`;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse token payload:', e);
+    }
+
+    // Output server audit log: Binding user email with the question asked
+    console.log(`[CONSULTATION LOG] User Email: ${userEmail} | Question: ${message}`);
+
     // 1. Generate Query Vector using bge-m3 (1024 dims)
     const embeddingResponse = await env.AI.run('@cf/baai/bge-m3', {
       text: [message]
