@@ -1,0 +1,9 @@
+name = "zhongcheng-law-firm"
+pages_build_output_dir = "."
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "labor-law-index"
+
+[ai]
+binding = "AI"
