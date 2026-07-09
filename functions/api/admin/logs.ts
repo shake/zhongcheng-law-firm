@@ -1,11 +1,19 @@
+import { requireAccess } from "../../_shared/access";
+
 interface Env {
   DB: any; // Cloudflare D1 Database binding
+  CF_ACCESS_DOMAIN?: string;
+  CF_ACCESS_AUD?: string;
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
-  const { env, request } = context;
+  const { env } = context;
 
-  // Set CORS or response headers
+  const accessResponse = await requireAccess(context);
+  if (accessResponse) {
+    return accessResponse;
+  }
+
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-cache'
