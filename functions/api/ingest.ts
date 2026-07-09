@@ -54,8 +54,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           values,
           metadata: {
             text: item.text,
-            chapter: item.chapter,
-            article: item.article,
+            chapter: item.chapterKey,
+            article: item.articleKey,
             source: '中华人民共和国劳动法'
           }
         };
@@ -91,9 +91,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 function parseMarkdown(mdText: string) {
   const lines = mdText.split('\n');
   let currentChapter = '总则';
-  const chunks: { text: string; chapter: string; article: string }[] = [];
+  let currentChapterKey = '总则';
+  const chunks: { text: string; chapterKey: string; articleKey: string }[] = [];
   
   let currentArticleNum = '';
+  let currentArticleKey = '';
   let currentArticleContent = '';
 
   for (let i = 0; i < lines.length; i++) {
@@ -105,29 +107,33 @@ function parseMarkdown(mdText: string) {
       // Flush current article before switching chapters
       if (currentArticleNum && currentArticleContent) {
         chunks.push({
-          chapter: currentChapter,
-          article: currentArticleNum,
+          chapterKey: currentChapterKey,
+          articleKey: currentArticleKey,
           text: `《中华人民共和国劳动法》 ${currentChapter} ${currentArticleNum} ${currentArticleContent.trim()}`
         });
         currentArticleNum = '';
+        currentArticleKey = '';
         currentArticleContent = '';
       }
       currentChapter = line.replace('## ', '').trim();
+      const chapterMatch = currentChapter.match(/^(第(?:[一二三四五六七八九十百]+|\d+)章)/);
+      currentChapterKey = chapterMatch ? chapterMatch[1] : currentChapter;
       continue;
     }
 
     // Check for article bold headers (e.g. **第一条**)
-    const articleMatch = line.match(/^\*\*(第[一二三四五六七八九十百]+条)\*\*(.*)/);
+    const articleMatch = line.match(/^\*\*(第(?:[一二三四五六七八九十百]+|\d+)条)\*\*(.*)/);
     if (articleMatch) {
       // Flush previous article
       if (currentArticleNum && currentArticleContent) {
         chunks.push({
-          chapter: currentChapter,
-          article: currentArticleNum,
+          chapterKey: currentChapterKey,
+          articleKey: currentArticleKey,
           text: `《中华人民共和国劳动法》 ${currentChapter} ${currentArticleNum} ${currentArticleContent.trim()}`
         });
       }
       currentArticleNum = articleMatch[1];
+      currentArticleKey = articleMatch[1];
       currentArticleContent = articleMatch[2];
     } else {
       // If it's additional text under the current article, append it
@@ -140,8 +146,8 @@ function parseMarkdown(mdText: string) {
   // Flush the last remaining article
   if (currentArticleNum && currentArticleContent) {
     chunks.push({
-      chapter: currentChapter,
-      article: currentArticleNum,
+      chapterKey: currentChapterKey,
+      articleKey: currentArticleKey,
       text: `《中华人民共和国劳动法》 ${currentChapter} ${currentArticleNum} ${currentArticleContent.trim()}`
     });
   }

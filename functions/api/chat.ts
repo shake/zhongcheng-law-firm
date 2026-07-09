@@ -73,20 +73,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     }
     const questionVector = embeddingResponse.data[0];
 
-    // 2. Query Vectorize
-    const vectorizeResults = await env.VECTORIZE.query(questionVector, {
-      topK: 3,
-      returnMetadata: 'all'
-    });
+    // 2. Query Vectorize with metadata-aware recall
+    const searchHints = extractLawSearchHints(message);
+    const vectorizeResults = await queryLawVectors(env, questionVector, searchHints);
 
     // 3. Construct Context
     let lawContext = '';
-    if (vectorizeResults && vectorizeResults.matches && vectorizeResults.matches.length > 0) {
-      lawContext = vectorizeResults.matches
+    if (vectorizeResults.length > 0) {
+      lawContext = vectorizeResults
         .map((match: any, idx: number) => {
           const text = match.metadata?.text || '';
-          const score = Math.round(match.score * 100);
-          return `【参考法条 ${idx + 1} (相关度: ${score}%)】\n${text}`;
+          const score = Math.round((match.score || 0) * 100);
+          const chapter = match.metadata?.chapter ? ` · ${match.metadata.chapter}` : '';
+          const article = match.metadata?.article ? ` ${match.metadata.article}` : '';
+          return `【参考法条 ${idx + 1}${chapter}${article} (相关度: ${score}%)】\n${text}`;
         })
         .join('\n\n');
     } else {
@@ -318,6 +318,75 @@ function extractTextFromGeminiChunk(buffer: string): string {
     }
   }
   return result;
+}
+
+type VectorizeMatch = {
+  id?: string;
+  score?: number;
+  metadata?: {
+    text?: string;
+    chapter?: string;
+    article?: string;
+    source?: string;
+  };
+};
+
+type LawSearchHints = {
+  chapter?: string;
+  article?: string;
+};
+
+async function queryLawVectors(env: Env, questionVector: number[], hints: LawSearchHints) {
+  const queries: Array<{
+    filter?: Record<string, string>;
+    topK: number;
+  }> = [];
+
+  if (hints.article) {
+    queries.push({ filter: { article: hints.article }, topK: 6 });
+  } else if (hints.chapter) {
+    queries.push({ filter: { chapter: hints.chapter }, topK: 6 });
+  }
+
+  queries.push({ topK: 8 });
+
+  const results = await Promise.all(
+    queries.map((query) =>
+      env.VECTORIZE.query(questionVector, {
+        topK: query.topK,
+        filter: query.filter,
+        returnMetadata: 'all',
+        returnValues: false
+      })
+    )
+  );
+
+  return mergeVectorMatches(results.flatMap((item) => item?.matches || []));
+}
+
+function mergeVectorMatches(matches: VectorizeMatch[]) {
+  const seen = new Set<string>();
+  const merged: VectorizeMatch[] = [];
+
+  for (const match of matches) {
+    const key = match.id || `${match.metadata?.chapter || ''}:${match.metadata?.article || ''}:${match.metadata?.text || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(match);
+  }
+
+  return merged.slice(0, 8);
+}
+
+function extractLawSearchHints(message: string): LawSearchHints {
+  const normalized = message.replace(/\s+/g, '');
+  const articleMatch = normalized.match(/第(?:[一二三四五六七八九十百]+|\d+)条/);
+  const chapterMatch = normalized.match(/第(?:[一二三四五六七八九十百]+|\d+)章/);
+
+  return {
+    article: articleMatch ? articleMatch[0] : undefined,
+    chapter: chapterMatch ? chapterMatch[0] : undefined
+  };
 }
 
 async function verifyClerkToken(token: string, clerkSecretKey: string): Promise<boolean> {

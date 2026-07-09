@@ -18,3 +18,10 @@ Cloudflare Zero Trust dashboard setup:
 2. Create a `Self-hosted` application for the site.
 3. Protect the `/admin*` path.
 4. Allow only the identities you want to use.
+
+## Vectorize Recall
+
+The labor-law index uses metadata indexes on `chapter`, `article`, and `source`.
+After changing the ingest logic, re-run the ingest endpoint once so existing vectors pick up the normalized metadata:
+
+`/api/ingest?code=zhongcheng-ingest-2026`
