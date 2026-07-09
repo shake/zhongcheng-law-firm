@@ -47,7 +47,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     try {
       const parts = token.split('.');
       if (parts.length === 3) {
-        const payloadDecoded = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payloadDecoded = decodeBase64Url(parts[1]);
         const payload = JSON.parse(payloadDecoded);
         if (payload.email) {
           userEmail = payload.email;
@@ -205,7 +205,7 @@ async function verifyClerkToken(token: string, clerkSecretKey: string): Promise<
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return false;
-    const payload = JSON.parse(atob(parts[1]));
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && now > payload.exp) {
       return false;
@@ -214,4 +214,12 @@ async function verifyClerkToken(token: string, clerkSecretKey: string): Promise<
   } catch {
     return false;
   }
+}
+
+function decodeBase64Url(str: string): string {
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4) {
+    base64 += '=';
+  }
+  return atob(base64);
 }
