@@ -78,19 +78,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       lawContext = '未在数据库中检索到直接相关的《中华人民共和国劳动法》条文。';
     }
 
-    // 7. Define System Prompt instructing Gemini as a Labor Lawyer
-    const systemInstruction = `你是一位专业、严谨且温和的劳动法咨询合伙人律师。你需要根据下面提供的《中华人民共和国劳动法》相关法条上下文，来解答用户的问题。
+    // 7. Define System Prompt and combine it with context and user message for absolute compatibility
+    const promptText = `你是一位专业、严谨且温和的劳动法咨询合伙人律师。请根据下面提供的《中华人民共和国劳动法》相关法条上下文，解答用户的具体提问。
 
 你的回答应当满足以下结构要求：
 1. 【首诊研判】：基于用户描述的事实，先给出核心法理定性与结论（用人单位是否违法）。
-2. 【法条引述】：请在回答中明确引述并列出支持你结论的具体法律条款（直接引证后面参考法条的内容）。
+2. 【法条引述】：在回答中明确引述并列出支持你结论的具体法律条款（直接引证后面参考法条的内容）。
 3. 【行动指引】：为劳动者提供可操作的建议，如收集哪些证据、向什么部门投诉、如何申请仲裁等。
 4. 【专业免责】：在回答的最后，附加一句话的专业免责声明，指出本答复基于AI大模型及导入数据生成，仅供学术参考，具体个案建议咨询专业律师。
 
 请始终使用中文进行回答，格式使用 Markdown 排版。
 
 下面是为您检索到的【参考劳动法条款】：
-${lawContext}`;
+${lawContext}
+
+用户提问的问题是：
+"${message}"`;
 
     // 8. Stream from Gemini 1.5 Flash using stable v1 API
     const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
@@ -102,11 +105,8 @@ ${lawContext}`;
       },
       body: JSON.stringify({
         contents: [
-          { role: 'user', parts: [{ text: message }] }
+          { role: 'user', parts: [{ text: promptText }] }
         ],
-        systemInstruction: {
-          parts: [{ text: systemInstruction }]
-        },
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 2048
