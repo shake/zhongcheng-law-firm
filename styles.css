@@ -1515,42 +1515,6 @@ textarea.form-control {
   }
 }
 
-/* ==========================================================================
-   10. LABOR LAW Q&A CHAT WIDGET STYLINGS
-   ========================================================================== */
-.chat-widget-container {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  z-index: 999;
-  font-family: var(--font-sans);
-}
-
-.chat-bubble-btn {
-  background-color: var(--accent);
-  color: #ffffff;
-  border: 1px solid var(--border-dark);
-  border-radius: 50px;
-  padding: 12px 24px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s ease, background-color 0.3s ease;
-}
-
-.chat-bubble-btn:hover {
-  transform: translateY(-3px);
-  background-color: var(--primary);
-}
-
-.chat-bubble-icon {
-  font-size: 1.2rem;
-}
-
 .chat-window {
   display: none;
   flex-direction: column;
