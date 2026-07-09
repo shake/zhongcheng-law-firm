@@ -109,10 +109,43 @@ ${lawContext}
 用户提问的问题是：
 "${message}"`;
 
-    // 5. Stream from Gemini 3.1 Flash Lite using v1beta API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
-    
-    const geminiResponse = await fetch(geminiUrl, {
+    // 5. Tool calling declarations & checking
+    const toolsDeclaration = [
+      {
+        functionDeclarations: [
+          {
+            name: "calculateSeverance",
+            description: "计算因劳动合同解除或被违法开除时的法定经济补偿金及违法解除赔偿金",
+            parameters: {
+              type: "OBJECT",
+              properties: {
+                monthlySalary: {
+                  type: "NUMBER",
+                  description: "劳动者前12个月的平均应发工资（人民币元）"
+                },
+                monthsOfService: {
+                  type: "NUMBER",
+                  description: "劳动者在该用人单位的工作年限折算月数（例如工作1年3个月填15，不满6个月填5）"
+                },
+                isIllegalDismissal: {
+                  type: "BOOLEAN",
+                  description: "是否为用人单位违法解除/违法开除（违法解除为双倍经济补偿）"
+                },
+                localAverageSalary: {
+                  type: "NUMBER",
+                  description: "当地职工月平均工资（可选，用于计算三倍高薪封顶，默认为贵阳市标准约8000元）"
+                }
+              },
+              required: ["monthlySalary", "monthsOfService"]
+            }
+          }
+        ]
+      }
+    ];
+
+    // Call generateContent first (non-streaming) to check if Gemini wants to invoke a tool
+    const checkUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${env.GEMINI_API_KEY}`;
+    const checkResponse = await fetch(checkUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -121,12 +154,84 @@ ${lawContext}
         contents: [
           { role: 'user', parts: [{ text: promptText }] }
         ],
+        tools: toolsDeclaration,
         generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2048
+          temperature: 0.1
         }
       })
     });
+
+    if (!checkResponse.ok) {
+      const checkErrText = await checkResponse.text();
+      throw new Error(`Gemini Check API returned status ${checkResponse.status}: ${checkErrText}`);
+    }
+
+    const checkData = await checkResponse.json() as any;
+    const firstCandidate = checkData.candidates?.[0];
+    const firstPart = firstCandidate?.content?.parts?.[0];
+
+    let geminiResponse;
+
+    if (firstPart && firstPart.functionCall) {
+      const functionCall = firstPart.functionCall;
+      const { name, args } = functionCall;
+      
+      // Execute the tool locally
+      const toolResult = executeTool(name, args);
+
+      // Call streaming API passing the tool response
+      const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
+      geminiResponse = await fetch(streamUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: promptText }]
+            },
+            {
+              role: 'model',
+              parts: [{ functionCall }]
+            },
+            {
+              role: 'function',
+              parts: [{
+                functionResponse: {
+                  name: name,
+                  response: { output: toolResult }
+                }
+              }]
+            }
+          ],
+          tools: toolsDeclaration,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2048
+          }
+        })
+      });
+    } else {
+      // No tool called, call streaming API normally
+      const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?key=${env.GEMINI_API_KEY}`;
+      geminiResponse = await fetch(streamUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [
+            { role: 'user', parts: [{ text: promptText }] }
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2048
+          }
+        })
+      });
+    }
 
     if (!geminiResponse.ok) {
       const errText = await geminiResponse.text();
@@ -222,4 +327,68 @@ function decodeBase64Url(str: string): string {
     base64 += '=';
   }
   return atob(base64);
+}
+
+function executeTool(name: string, args: any): any {
+  if (name === 'calculateSeverance') {
+    const monthlySalary = Number(args.monthlySalary);
+    const monthsOfService = Number(args.monthsOfService);
+    const isIllegalDismissal = !!args.isIllegalDismissal;
+    const localAverageSalary = Number(args.localAverageSalary || 8000); 
+
+    // 1. 计算经济补偿金系数
+    let multiplier = 0;
+    const years = monthsOfService / 12;
+    const fullYears = Math.floor(years);
+    const remainingMonths = monthsOfService % 12;
+
+    multiplier += fullYears;
+    if (remainingMonths >= 6) {
+      multiplier += 1.0;
+    } else if (remainingMonths > 0) {
+      multiplier += 0.5;
+    }
+
+    // 2. 高薪封顶规则
+    const capSalary = localAverageSalary * 3;
+    let actualBaseSalary = monthlySalary;
+    let isCapped = false;
+
+    if (monthlySalary > capSalary) {
+      actualBaseSalary = capSalary;
+      isCapped = true;
+      if (multiplier > 12) {
+        multiplier = 12;
+      }
+    }
+
+    // 3. 计算基础经济补偿金
+    const baseCompensation = actualBaseSalary * multiplier;
+
+    // 4. 违法解除加倍赔偿
+    const finalCompensation = isIllegalDismissal ? baseCompensation * 2 : baseCompensation;
+
+    return {
+      success: true,
+      formula: "经济补偿金 = 计算基数工资 * 补偿系数 (工作年限) " + (isIllegalDismissal ? "* 2 (违法解除双倍)" : ""),
+      inputs: {
+        monthlySalary,
+        monthsOfService,
+        isIllegalDismissal,
+        localAverageSalary
+      },
+      calculation: {
+        actualBaseSalary,
+        isCapped,
+        multiplier,
+        baseCompensation,
+        finalCompensation,
+        resultSummary: `计算基数工资为 ${actualBaseSalary} 元/月（${isCapped ? '已触发三倍社平工资封顶' : '未封顶'}），工作月数折算为 ${multiplier} 个月补偿基数。` +
+                       `基础经济补偿金为 ${baseCompensation} 元。` +
+                       (isIllegalDismissal ? `因属于违法解除，依法翻倍赔偿，最终应得赔偿金总额为 ${finalCompensation} 元。` : `法定经济补偿金总额为 ${finalCompensation} 元。`)
+      }
+    };
+  }
+  
+  throw new Error(`Unknown tool: ${name}`);
 }
