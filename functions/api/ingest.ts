@@ -37,8 +37,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const batch = chunks.slice(i, i + batchSize);
       const texts = batch.map(c => c.text);
 
-      // Generate embeddings using the Chinese BGE-large-zh model
-      const aiResponse = await env.AI.run('@cf/baai/bge-large-zh-v1.5', {
+      // Generate embeddings using the multilingual BGE-m3 model (1024 dimensions)
+      const aiResponse = await env.AI.run('@cf/baai/bge-m3', {
         text: texts
       });
 
