@@ -934,7 +934,10 @@ function initLaborLawChat() {
       console.error('Verify code error:', error);
       authVerifyCodeBtn.disabled = false;
       authVerifyCodeBtn.textContent = '验证并开启咨询';
-      codeFeedback.textContent = '验证码错误或已过期，请重新输入';
+      
+      // Extract the exact error message from Clerk API
+      const clerkErrMsg = error.errors?.[0]?.longMessage || error.errors?.[0]?.message || error.message || '验证码错误或已过期，请重新输入';
+      codeFeedback.textContent = clerkErrMsg;
       codeFeedback.style.display = 'block';
     }
   });
