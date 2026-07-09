@@ -619,6 +619,35 @@
     </div>
   </div>
 
+  <!-- ==========================================
+       LABOR LAW Q&A CHAT WIDGET
+       ========================================== -->
+  <div class="chat-widget-container" id="chat-widget">
+    <!-- Floating chat bubble button -->
+    <button class="chat-bubble-btn" id="chat-bubble-btn" aria-label="打开劳动法AI首诊咨询">
+      <span class="chat-bubble-icon">⚖</span>
+      <span class="chat-bubble-text">劳动法 AI 研判</span>
+    </button>
+
+    <!-- Chat Window Drawer -->
+    <div class="chat-window" id="chat-window">
+      <div class="chat-header">
+        <div class="chat-header-title">劳动法 AI 智能首诊专栏</div>
+        <button class="chat-close-btn" id="chat-close-btn" aria-label="关闭">&times;</button>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="message system-message">
+          您好！我是中成律所您的劳动法智能咨询顾问。您可以向我咨询任何关于试用期长度、加班工资、解除补偿金或社保争议等劳动法相关问题。我将为您检索最新的《中华人民共和国劳动法》及《劳动合同法》条文并进行合规解答。
+        </div>
+      </div>
+      <!-- Input form -->
+      <form class="chat-input-area" id="chat-input-form">
+        <input type="text" id="chat-input-field" class="chat-input-field" placeholder="请简要描述您的劳动法咨询..." required>
+        <button type="submit" class="chat-send-btn" id="chat-send-btn">发送</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Javascript -->
   <script src="app.js"></script>
 </body>

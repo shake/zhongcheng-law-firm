@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLegalCalculator();
   initFaqAccordion();
   initBreakingTicker();
+  initLaborLawChat();
 });
 
 /**
@@ -695,4 +696,133 @@ function initBreakingTicker() {
       console.error('Error loading news.json:', error);
       // Keeps original fallback static HTML items in case of fetch error (e.g. file:// protocol)
     });
+}
+
+/**
+ * 11. Labor Law AI Q&A Chat Widget Interaction
+ */
+function initLaborLawChat() {
+  const bubbleBtn = document.getElementById('chat-bubble-btn');
+  const chatWindow = document.getElementById('chat-window');
+  const closeBtn = document.getElementById('chat-close-btn');
+  const chatForm = document.getElementById('chat-input-form');
+  const chatInputField = document.getElementById('chat-input-field');
+  const chatMessages = document.getElementById('chat-messages');
+
+  if (!bubbleBtn || !chatWindow || !chatForm || !chatInputField || !chatMessages) return;
+
+  // Toggle Chat window open/close
+  bubbleBtn.addEventListener('click', () => {
+    chatWindow.classList.toggle('active');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      chatWindow.classList.remove('active');
+    });
+  }
+
+  // Handle Form Submission
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = chatInputField.value.trim();
+    if (!query) return;
+
+    // Append User Message to UI
+    appendChatMessage('user', query);
+    chatInputField.value = '';
+
+    // Show Loading Skeleton
+    const loadingMessageElement = appendChatMessage('loading', '中成律师正在为您检索劳动法条并进行合规研判...');
+
+    try {
+      // Retrieve Clerk Token if Clerk is initialized, otherwise use developer dummy token
+      let token = 'dummy-development-token';
+      if (window.Clerk && window.Clerk.session) {
+        token = await window.Clerk.session.getToken();
+      }
+
+      // Call Streaming Chat API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: query })
+      });
+
+      // Remove loading message
+      loadingMessageElement.remove();
+
+      if (!response.ok) {
+        let errText = '请求失败';
+        try {
+          const errJson = await response.json();
+          errText = errJson.error || errText;
+        } catch {
+          errText = await response.text();
+        }
+        appendChatMessage('ai', `⚠️ 研判失败：${errText}`);
+        return;
+      }
+
+      // Stream Reader
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      
+      // Append an empty AI message block to fill in dynamically
+      const aiMessageElement = appendChatMessage('ai', '');
+      let fullResponseText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullResponseText += chunk;
+
+        // Render formatted HTML (simple markdown to HTML conversion)
+        aiMessageElement.innerHTML = formatMarkdown(fullResponseText);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+    } catch (error) {
+      if (loadingMessageElement) loadingMessageElement.remove();
+      appendChatMessage('ai', `⚠️ 网络连接错误：${error.message}`);
+    }
+  });
+
+  // Helper to append message bubble to UI
+  function appendChatMessage(sender, text) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${sender}-message`;
+    msgDiv.innerHTML = text;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return msgDiv;
+  }
+
+  // Simple RegExp Markdown Parser for Edge clients
+  function formatMarkdown(text) {
+    let html = text;
+    // Replace Headings: ### title and ## title
+    html = html.replace(/###\s+(.*?)(?=\n|$)/g, '<h4>$1</h4>');
+    html = html.replace(/##\s+(.*?)(?=\n|$)/g, '<h3>$1</h3>');
+    // Replace Bold: **text**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Replace Bullet Lists: - item
+    html = html.replace(/^\s*-\s+(.*?)(?=\n|$)/gm, '<li>$1</li>');
+    // Wrap lists in <ul> tags (simple pass)
+    html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
+    // Replace Paragraphs (split by double newlines)
+    html = html.split('\n\n').map(p => {
+      p = p.trim();
+      if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<li')) return p;
+      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+    }).join('\n');
+
+    return html;
+  }
 }
