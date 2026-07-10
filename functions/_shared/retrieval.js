@@ -13,6 +13,37 @@ export function routeCorpusNames(message) {
   return ['labor', 'insurance'];
 }
 
+export function getArticleFallbackHints(corpusKey, message) {
+  const hints = [];
+  const add = (...articles) => hints.push(...articles);
+
+  if (corpusKey === 'labor') {
+    if (/工会/.test(message)) add('第七条');
+    if (/劳动者.{0,8}(权利|权益)|劳动权益/.test(message)) add('第三条');
+    if (/劳动合同.{0,12}(形式|书面|内容)|书面.{0,8}劳动合同/.test(message)) add('第十六条', '第十九条');
+    if (/劳动安全|安全卫生/.test(message)) add('第五十二条');
+    if (/社会保险|社保/.test(message)) add('第七十二条', '第七十三条');
+    if (/劳动争议|劳动仲裁|调解、仲裁|仲裁、提起诉讼/.test(message)) add('第七十七条');
+    if (/加班|延长工作时间/.test(message)) add('第四十一条');
+    if (/拖欠工资|克扣.*工资|工资.*拖欠/.test(message)) add('第九十一条');
+    if (/孕期|怀孕|女职工/.test(message)) add('第六十一条');
+    if (/违反劳动法|违法解除|劳动法.*责任/.test(message)) add('第九十八条');
+  } else {
+    if (/责任保险/.test(message)) add('第六十五条', '第六十六条');
+    if (/保险事故.*通知|通知.*保险事故/.test(message)) add('第二十一条');
+    if (/理赔核定|赔偿.*核定|核定.*保险/.test(message)) add('第二十三条');
+    if (/保险合同.*(两种|解释)|条款.*解释/.test(message)) add('第三十条');
+    if (/保险合同.*成立|合同.*成立/.test(message)) add('第十三条');
+    if (/免责条款|提示和说明|明确说明/.test(message)) add('第十七条');
+    if (/保险金.*材料|提供.*材料|理赔材料/.test(message)) add('第二十二条');
+    if (/人身保险利益|保险利益/.test(message)) add('第三十一条');
+    if (/代位/.test(message)) add('第六十条');
+    if (/保险合同.*定义|保险法所称.*保险/.test(message)) add('第二条', '第十条');
+  }
+
+  return [...new Set(hints)];
+}
+
 export function mergeVectorMatches(matches) {
   const seen = new Set();
   const merged = [];
@@ -37,6 +68,7 @@ export function rerankVectorMatches(matches, hints, message, limit = 8) {
       const article = match.metadata?.article || '';
       let rank = match.score || 0;
 
+      if (match.metadata?.retrievalAnchor) rank += 3;
       if (hints.article && article === hints.article) rank += 2;
       if (hints.chapter && chapter === hints.chapter) rank += 1;
 
@@ -57,6 +89,77 @@ export function rerankVectorMatches(matches, hints, message, limit = 8) {
     })
     .slice(0, limit)
     .map((item) => item.match);
+}
+
+export function selectBalancedCorpusMatches(corpusResults, hints, message, totalLimit = 10) {
+  const rankedCorpora = corpusResults.map((corpus) => ({
+    ...corpus,
+    matches: rerankVectorMatches(corpus.matches, hints, message, 30)
+  }));
+
+  if (rankedCorpora.length <= 1) {
+    return rerankVectorMatches(
+      takeDiverseMatches(rankedCorpora[0]?.matches || [], totalLimit),
+      hints,
+      message,
+      totalLimit
+    );
+  }
+
+  const selected = [];
+  const selectedIds = new Set();
+  const articleCounts = new Map();
+  const minimumPerCorpus = Math.min(5, Math.floor(totalLimit / rankedCorpora.length));
+
+  for (const corpus of rankedCorpora) {
+    for (const match of takeDiverseMatches(corpus.matches, minimumPerCorpus)) {
+      addMatch(match, selected, selectedIds, articleCounts);
+    }
+  }
+
+  const remaining = rankedCorpora.flatMap((corpus) => corpus.matches)
+    .filter((match) => !selectedIds.has(match.id));
+  const globallyRanked = rerankVectorMatches(remaining, hints, message, remaining.length);
+
+  for (const match of globallyRanked) {
+    if (selected.length >= totalLimit) break;
+    addMatch(match, selected, selectedIds, articleCounts);
+  }
+
+  return rerankVectorMatches(selected, hints, message, totalLimit);
+}
+
+function takeDiverseMatches(matches, limit) {
+  const articleCounts = new Map();
+  const selected = [];
+  const orderedMatches = [...matches].sort((a, b) =>
+    Number(Boolean(b.metadata?.retrievalAnchor)) - Number(Boolean(a.metadata?.retrievalAnchor))
+  );
+
+  for (const match of orderedMatches) {
+    if (selected.length >= limit) break;
+    const article = match.metadata?.article || match.id || '';
+    const count = articleCounts.get(article) || 0;
+    if (count >= 2) continue;
+    articleCounts.set(article, count + 1);
+    selected.push(match);
+  }
+
+  return selected;
+}
+
+function addMatch(match, selected, selectedIds, articleCounts) {
+  const id = match.id || `${match.metadata?.source || ''}:${match.metadata?.article || ''}:${match.metadata?.text || ''}`;
+  if (selectedIds.has(id)) return false;
+
+  const article = `${match.metadata?.source || ''}:${match.metadata?.article || ''}`;
+  const count = articleCounts.get(article) || 0;
+  if (count >= 2) return false;
+
+  selectedIds.add(id);
+  articleCounts.set(article, count + 1);
+  selected.push(match);
+  return true;
 }
 
 function extractLegalKeywords(message) {

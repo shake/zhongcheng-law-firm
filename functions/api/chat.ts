@@ -7,9 +7,10 @@ import {
   QUERY_INSTRUCTION
 } from '../_shared/rag';
 import {
+  getArticleFallbackHints,
   mergeVectorMatches,
-  rerankVectorMatches,
-  routeCorpusNames
+  routeCorpusNames,
+  selectBalancedCorpusMatches
 } from '../_shared/retrieval.js';
 
 interface Env {
@@ -80,24 +81,32 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // Output server audit log: Binding user email with the question asked
     console.log(`[CONSULTATION LOG] User Email: ${userEmail} | Question: ${message}`);
 
-    // 1. Generate a Qwen3 query vector (1024 dims) with a retrieval instruction.
-    const embeddingResponse = await env.AI.run(EMBEDDING_MODEL, {
-      text: [`Instruct: ${QUERY_INSTRUCTION}\nQuery: ${message}`]
-    });
-
-    if (!embeddingResponse || !embeddingResponse.data || !embeddingResponse.data[0]) {
-      throw new Error('Failed to generate embedding for the question.');
-    }
-    const questionVector = embeddingResponse.data[0];
-
-    // 2. Route to the relevant corpus before metadata-aware recall.
+    // 1. Route first so each corpus gets a domain-specific query vector.
     const searchHints = extractLawSearchHints(message);
     const corpusConfigs = getCorpusConfigs(env, message);
+    const isCrossCorpus = corpusConfigs.length > 1;
+    const queryTexts = corpusConfigs.flatMap((corpus) => {
+      const baseQuery = `Instruct: ${QUERY_INSTRUCTION}\nQuery: ${message}`;
+      return isCrossCorpus ? [baseQuery, buildCorpusQuery(corpus, message)] : [baseQuery];
+    });
+    const embeddingResponse = await env.AI.run(EMBEDDING_MODEL, {
+      text: queryTexts
+    });
+
+    if (!embeddingResponse?.data || embeddingResponse.data.length < queryTexts.length) {
+      throw new Error('Failed to generate embedding for the question.');
+    }
+
     const corpusResults = await Promise.all(
-      corpusConfigs.map((corpus) => queryCorpusVectors(corpus, questionVector, searchHints))
+      corpusConfigs.map((corpus, index) => {
+        const vectors = isCrossCorpus
+          ? [embeddingResponse.data[index * 2], embeddingResponse.data[index * 2 + 1]]
+          : [embeddingResponse.data[index]];
+        return queryCorpusVectors(corpus, vectors, searchHints, message);
+      })
     );
-    const vectorizeResults = rerankVectorMatches(
-      mergeVectorMatches(corpusResults.flat()),
+    const vectorizeResults = selectBalancedCorpusMatches(
+      corpusResults.map((matches, index) => ({ key: corpusConfigs[index].key, matches })),
       searchHints,
       message,
       10
@@ -106,16 +115,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // 3. Construct Context
     let lawContext = '';
     if (vectorizeResults.length > 0) {
-      lawContext = vectorizeResults
-        .map((match: any, idx: number) => {
+      lawContext = corpusConfigs.map((corpus) => {
+        const corpusMatches = vectorizeResults.filter((match: VectorizeMatch) =>
+          match.metadata?.source === corpus.source
+        );
+        if (corpusMatches.length === 0) return '';
+        const section = corpusMatches.map((match: VectorizeMatch, idx: number) => {
           const text = match.metadata?.text || '';
           const score = Math.round((match.score || 0) * 100);
-          const source = match.metadata?.source ? ` · ${match.metadata.source}` : '';
+          const anchor = match.metadata?.retrievalAnchor ? ' · 关键匹配' : '';
           const chapter = match.metadata?.chapter ? ` · ${match.metadata.chapter}` : '';
           const article = match.metadata?.article ? ` ${match.metadata.article}` : '';
-          return `【参考法条 ${idx + 1}${source}${chapter}${article} (相关度: ${score}%)】\n${text}`;
-        })
-        .join('\n\n');
+          return `【参考法条 ${idx + 1}${anchor}${chapter}${article} (相关度: ${score}%)】\n${text}`;
+        }).join('\n\n');
+        return `【${corpus.source}参考法律条款】\n${section}`;
+      }).filter(Boolean).join('\n\n');
     } else {
       lawContext = '未在当前检索范围内检索到直接相关的法律条文。';
     }
@@ -130,7 +144,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 3. 【行动指引】：为劳动者提供3-4条最核心、可操作的维权步骤（例如：书面通知、保留关键证据、申请仲裁等），每条建议要简短有力，避免废话。
 4. 【专业免责】：在回答的最后，附加一句话的专业免责声明。
 
-重要约束：本次检索来源为 ${corpusNames}。只能把下面检索到的参考法条作为法律依据，不能把《劳动法》和《保险法》的条文互相替代。参考法条没有出现的法律规则、法条编号、金额、期限或赔偿标准，不得自行补充或猜测。如果问题涉及当前法条库未收录的法律，应明确说明“当前法条库未收录该法律依据”，不要用其他法律替代回答。
+重要约束：本次检索来源为 ${corpusNames}。${corpusConfigs.length > 1 ? '请分别从每部法律的参考条款中提取依据，明确区分劳动法分析和保险法分析，不得只回答其中一部法律。凡标记为“关键匹配”的参考法条，必须在【法条引述】中逐一覆盖，不得因内容相近而省略。' : ''}只能把下面检索到的参考法条作为法律依据，不能把《劳动法》和《保险法》的条文互相替代。参考法条没有出现的法律规则、法条编号、金额、期限、比例或赔偿标准，不得自行补充或猜测。如果参考条文只规定一般原则、没有规定用户询问的具体标准，也必须明确说明“当前法条未规定该具体标准”。如果问题涉及当前法条库未收录的法律，应明确说明“当前法条库未收录该法律依据”，不要用其他法律替代回答。
 
 请始终使用中文进行回答，格式使用 Markdown 排版。
 
@@ -365,6 +379,7 @@ type VectorizeMatch = {
     article?: string;
     corpusVersion?: string;
     source?: string;
+    retrievalAnchor?: boolean;
   };
 };
 
@@ -389,33 +404,53 @@ function getCorpusConfigs(env: Env, message: string): CorpusConfig[] {
   return routeCorpusNames(message).map((key) => corpora[key]);
 }
 
-async function queryCorpusVectors(corpus: CorpusConfig, questionVector: number[], hints: LawSearchHints) {
+function buildCorpusQuery(corpus: CorpusConfig, message: string) {
+  const focus = corpus.key === 'labor'
+    ? '劳动者、用人单位、劳动合同、工资、加班、劳动安全卫生、社会保险、劳动争议和劳动者权益；忽略保险合同、保险人和保险理赔部分。'
+    : '保险合同、投保人、被保险人、保险人、保险责任、保险事故、保险金、理赔、责任保险和保险条款；忽略劳动合同、工资和劳动争议部分。';
+  return `Instruct: ${QUERY_INSTRUCTION}\n仅从《${corpus.source}》角度检索。优先关注：${focus}\nQuery: ${message}`;
+}
+
+async function queryCorpusVectors(corpus: CorpusConfig, questionVectors: number[][], hints: LawSearchHints, message: string) {
   const queries: Array<{
     filter?: Record<string, string>;
     topK: number;
   }> = [];
 
-  if (hints.article) {
-    queries.push({ filter: { article: hints.article, corpusVersion: corpus.version }, topK: 20 });
-  } else if (hints.chapter) {
-    queries.push({ filter: { chapter: hints.chapter, corpusVersion: corpus.version }, topK: 20 });
+  const articleHints = hints.article
+    ? [hints.article]
+    : getArticleFallbackHints(corpus.key, message);
+
+  for (const article of articleHints) {
+    queries.push({ filter: { article, corpusVersion: corpus.version }, topK: 30 });
+  }
+  if (articleHints.length === 0 && hints.chapter) {
+    queries.push({ filter: { chapter: hints.chapter, corpusVersion: corpus.version }, topK: 30 });
   }
 
-  queries.push({ filter: { corpusVersion: corpus.version }, topK: 20 });
+  queries.push({ filter: { corpusVersion: corpus.version }, topK: 30 });
 
   const results = await Promise.all(
-    queries.map((query) =>
-      corpus.index.query(questionVector, {
+    questionVectors.flatMap((questionVector) => queries.map(async (query) => ({
+      query,
+      result: await corpus.index.query(questionVector, {
         topK: query.topK,
         filter: query.filter,
         returnMetadata: 'all',
         returnValues: false
       })
-    )
+    })))
   );
 
   // Keep the per-corpus candidate pool intact; global reranking happens after both indexes return.
-  return mergeVectorMatches(results.flatMap((item) => item?.matches || []));
+  return mergeVectorMatches(results.flatMap(({ query, result }) =>
+    (result?.matches || []).map((match: VectorizeMatch) => query.filter?.article
+      ? {
+        ...match,
+        metadata: { ...match.metadata, retrievalAnchor: true }
+      }
+      : match)
+  ));
 }
 
 function extractLawSearchHints(message: string): LawSearchHints {
