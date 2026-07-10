@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
   <title id="title">中成律所 RAG 架构图</title>
-  <desc id="desc">展示法律法规入库和用户问答两条 RAG 链路。</desc>
+  <desc id="desc">展示劳动法和保险法双索引入库、综合问题双库召回以及法律问答生成两条 RAG 链路。</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#f7f2e9"/>
@@ -38,7 +38,7 @@
   <circle cx="80" cy="1080" r="220" fill="#ecd8c6" opacity=".42"/>
 
   <text x="80" y="92" class="sans title">中成律所 · RAG 架构</text>
-  <text x="82" y="126" class="sans subtitle">Retrieval-Augmented Generation for Chinese Labor Law</text>
+  <text x="82" y="126" class="sans subtitle">Retrieval-Augmented Generation for Chinese Labor and Insurance Law</text>
 
   <rect x="80" y="165" width="1040" height="430" rx="28" fill="#fffdf9" opacity=".9" filter="url(#shadow)"/>
   <rect x="80" y="165" width="1040" height="54" rx="28" fill="url(#orange)"/>
@@ -51,9 +51,9 @@
     <rect x="600" y="280" width="210" height="150" rx="18" fill="#fff"/>
     <rect x="840" y="280" width="240" height="150" rx="18" fill="url(#navy)"/>
   </g>
-  <text x="145" y="323" class="sans node-title">劳动法原文</text>
-  <text x="145" y="354" class="sans node-copy">labor-law.md</text>
-  <text x="145" y="384" class="sans small">107 条 · 13 章</text>
+  <text x="145" y="323" class="sans node-title">法律原文</text>
+  <text x="145" y="354" class="sans node-copy">labor-law.md · insurance-law.md</text>
+  <text x="145" y="384" class="sans small">劳动法 152 chunks · 保险法 431 chunks</text>
   <text x="385" y="323" class="sans node-title">结构化切块</text>
   <text x="385" y="354" class="sans node-copy">章节 / 法条 / 段落</text>
   <text x="385" y="384" class="sans small">当前生成 152 个 chunks</text>
@@ -61,15 +61,15 @@
   <text x="625" y="354" class="mono node-copy">@cf/qwen/qwen3-embedding-0.6b</text>
   <text x="625" y="384" class="sans small">多语言 · 指令感知 · 1024 维</text>
   <text x="865" y="323" class="sans" font-size="20" font-weight="700" fill="#fff">Vectorize</text>
-  <text x="865" y="354" class="mono" font-size="15" fill="#dbe8ef">labor-law-index</text>
-  <text x="865" y="384" class="sans" font-size="14" fill="#c0d3df">向量 + metadata</text>
-  <text x="865" y="408" class="sans" font-size="13" fill="#c0d3df">chapter · article · source</text>
+  <text x="865" y="354" class="mono" font-size="14" fill="#dbe8ef">labor-law-qwen3-index</text>
+  <text x="865" y="382" class="mono" font-size="14" fill="#dbe8ef">insurance-law-qwen3-index</text>
+  <text x="865" y="410" class="sans" font-size="13" fill="#c0d3df">chapter · article · source · version</text>
 
   <path d="M330 355 H350" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
   <path d="M570 355 H590" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
   <path d="M810 355 H830" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
   <text x="120" y="510" class="sans label">一次性或法规更新时执行</text>
-  <text x="120" y="542" class="sans small">/api/ingest → Workers AI → Vectorize upsert</text>
+  <text x="120" y="542" class="sans small">/api/ingest + /api/ingest-insurance → Workers AI → Vectorize upsert</text>
 
   <rect x="80" y="635" width="1040" height="430" rx="28" fill="#fffdf9" opacity=".9" filter="url(#shadow)"/>
   <rect x="80" y="635" width="1040" height="54" rx="28" fill="url(#navy)"/>
@@ -87,10 +87,10 @@
   <text x="145" y="854" class="sans small">Bearer Token 认证</text>
   <text x="360" y="793" class="sans node-title">问题向量化</text>
   <text x="360" y="824" class="mono node-copy">qwen3-embedding-0.6b · 1024 维</text>
-  <text x="360" y="854" class="sans small">查询指令 · 与入库使用同一模型</text>
+  <text x="360" y="854" class="sans small">单库单向量 · 综合问题双向量</text>
   <text x="595" y="793" class="sans node-title">召回与二次排序</text>
-  <text x="595" y="824" class="sans node-copy">topK 20 · metadata filter</text>
-  <text x="595" y="854" class="sans small">去重 · 关键词加权 · 重排</text>
+  <text x="595" y="824" class="sans node-copy">TopK 30 · metadata filter · anchors</text>
+  <text x="595" y="854" class="sans small">双库配额 · 去重 · 跨库重排</text>
   <text x="830" y="793" class="sans" font-size="20" font-weight="700" fill="#fff">Gemini</text>
   <text x="830" y="824" class="mono" font-size="15" fill="#fff4ed">gemini-3.1-flash-lite</text>
   <text x="830" y="854" class="sans" font-size="14" fill="#ffe2d4">法条上下文 + 用户问题</text>
@@ -100,7 +100,7 @@
   <path d="M775 825 H795" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
   <path d="M942 900 V950 H210 V900" fill="none" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
   <text x="120" y="982" class="sans label">RAG 输出</text>
-  <text x="120" y="1014" class="sans small">流式法律分析 · 法条引述 · 行动指引 · 专业免责声明</text>
+  <text x="120" y="1014" class="sans small">流式法律分析 · 分法案引述 · 行动指引 · 专业免责声明</text>
   <text x="885" y="1014" class="sans small">D1：记录问题与回答</text>
 
   <text x="80" y="1140" class="sans small">核心原则：先检索真实法条，再由大模型生成回答。</text>
