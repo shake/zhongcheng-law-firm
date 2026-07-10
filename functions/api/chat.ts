@@ -75,7 +75,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     // 2. Query Vectorize with metadata-aware recall
     const searchHints = extractLawSearchHints(message);
-    const vectorizeResults = await queryLawVectors(env, questionVector, searchHints);
+    const vectorizeResults = await queryLawVectors(env, questionVector, searchHints, message);
 
     // 3. Construct Context
     let lawContext = '';
@@ -336,7 +336,7 @@ type LawSearchHints = {
   article?: string;
 };
 
-async function queryLawVectors(env: Env, questionVector: number[], hints: LawSearchHints) {
+async function queryLawVectors(env: Env, questionVector: number[], hints: LawSearchHints, message: string) {
   const queries: Array<{
     filter?: Record<string, string>;
     topK: number;
@@ -361,7 +361,11 @@ async function queryLawVectors(env: Env, questionVector: number[], hints: LawSea
     )
   );
 
-  return mergeVectorMatches(results.flatMap((item) => item?.matches || []));
+  return rerankVectorMatches(
+    mergeVectorMatches(results.flatMap((item) => item?.matches || [])),
+    hints,
+    message
+  );
 }
 
 function mergeVectorMatches(matches: VectorizeMatch[]) {
@@ -378,6 +382,44 @@ function mergeVectorMatches(matches: VectorizeMatch[]) {
   return merged.slice(0, 8);
 }
 
+function rerankVectorMatches(matches: VectorizeMatch[], hints: LawSearchHints, message: string) {
+  const keywords = extractLegalKeywords(message);
+
+  return matches
+    .map((match) => {
+      const text = match.metadata?.text || '';
+      const chapter = match.metadata?.chapter || '';
+      const article = match.metadata?.article || '';
+      let rank = match.score || 0;
+
+      if (hints.article && article === hints.article) {
+        rank += 2;
+      }
+      if (hints.chapter && chapter === hints.chapter) {
+        rank += 1;
+      }
+
+      for (const keyword of keywords) {
+        if (text.includes(keyword)) {
+          rank += 0.08;
+        }
+      }
+
+      rank += Math.max(0, 0.12 - Math.min(text.length, 240) / 2000);
+
+      return { match, rank };
+    })
+    .sort((a, b) => {
+      if (b.rank !== a.rank) return b.rank - a.rank;
+
+      const aText = a.match.metadata?.text || '';
+      const bText = b.match.metadata?.text || '';
+      return aText.length - bText.length;
+    })
+    .slice(0, 8)
+    .map((item) => item.match);
+}
+
 function extractLawSearchHints(message: string): LawSearchHints {
   const normalized = message.replace(/\s+/g, '');
   const articleMatch = normalized.match(/第(?:[一二三四五六七八九十百]+|\d+)条/);
@@ -387,6 +429,38 @@ function extractLawSearchHints(message: string): LawSearchHints {
     article: articleMatch ? articleMatch[0] : undefined,
     chapter: chapterMatch ? chapterMatch[0] : undefined
   };
+}
+
+function extractLegalKeywords(message: string) {
+  const words = [
+    '试用期',
+    '工资',
+    '加班',
+    '辞退',
+    '解除',
+    '仲裁',
+    '补偿',
+    '赔偿',
+    '社保',
+    '合同',
+    '年假',
+    '病假',
+    '产假',
+    '调岗',
+    '降薪',
+    '旷工',
+    '裁员',
+    '竞业',
+    '工伤',
+    '经济补偿',
+    '违法解除',
+    '未签劳动合同',
+    '拖欠工资'
+  ];
+
+  return words.filter((word) => {
+    return message.includes(word);
+  });
 }
 
 async function verifyClerkToken(token: string, clerkSecretKey: string): Promise<boolean> {

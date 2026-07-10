@@ -50,7 +50,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const vectors = aiResponse.data.map((values: number[], index: number) => {
         const item = batch[index];
         return {
-          id: `labor-law-art-${i + index + 1}`,
+          id: item.id,
           values,
           metadata: {
             text: item.text,
@@ -92,11 +92,12 @@ function parseMarkdown(mdText: string) {
   const lines = mdText.split('\n');
   let currentChapter = '总则';
   let currentChapterKey = '总则';
-  const chunks: { text: string; chapterKey: string; articleKey: string }[] = [];
+  const chunks: { id: string; text: string; chapterKey: string; articleKey: string }[] = [];
   
   let currentArticleNum = '';
   let currentArticleKey = '';
   let currentArticleContent = '';
+  let currentArticleIndex = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -106,11 +107,7 @@ function parseMarkdown(mdText: string) {
     if (line.startsWith('## ')) {
       // Flush current article before switching chapters
       if (currentArticleNum && currentArticleContent) {
-        chunks.push({
-          chapterKey: currentChapterKey,
-          articleKey: currentArticleKey,
-          text: `《中华人民共和国劳动法》 ${currentChapter} ${currentArticleNum} ${currentArticleContent.trim()}`
-        });
+        pushArticleChunks(chunks, currentChapter, currentChapterKey, currentArticleNum, currentArticleKey, currentArticleContent, currentArticleIndex);
         currentArticleNum = '';
         currentArticleKey = '';
         currentArticleContent = '';
@@ -126,12 +123,9 @@ function parseMarkdown(mdText: string) {
     if (articleMatch) {
       // Flush previous article
       if (currentArticleNum && currentArticleContent) {
-        chunks.push({
-          chapterKey: currentChapterKey,
-          articleKey: currentArticleKey,
-          text: `《中华人民共和国劳动法》 ${currentChapter} ${currentArticleNum} ${currentArticleContent.trim()}`
-        });
+        pushArticleChunks(chunks, currentChapter, currentChapterKey, currentArticleNum, currentArticleKey, currentArticleContent, currentArticleIndex);
       }
+      currentArticleIndex += 1;
       currentArticleNum = articleMatch[1];
       currentArticleKey = articleMatch[1];
       currentArticleContent = articleMatch[2];
@@ -145,12 +139,65 @@ function parseMarkdown(mdText: string) {
 
   // Flush the last remaining article
   if (currentArticleNum && currentArticleContent) {
-    chunks.push({
-      chapterKey: currentChapterKey,
-      articleKey: currentArticleKey,
-      text: `《中华人民共和国劳动法》 ${currentChapter} ${currentArticleNum} ${currentArticleContent.trim()}`
-    });
+    pushArticleChunks(chunks, currentChapter, currentChapterKey, currentArticleNum, currentArticleKey, currentArticleContent, currentArticleIndex);
   }
 
   return chunks;
+}
+
+function pushArticleChunks(
+  chunks: { id: string; text: string; chapterKey: string; articleKey: string }[],
+  chapter: string,
+  chapterKey: string,
+  articleNum: string,
+  articleKey: string,
+  articleContent: string,
+  articleIndex: number
+) {
+  const segments = splitArticleContent(articleContent.trim());
+  segments.forEach((segment, segmentIndex) => {
+    chunks.push({
+      id: `labor-law-${articleIndex}-${segmentIndex + 1}`,
+      chapterKey,
+      articleKey,
+      text: `《中华人民共和国劳动法》 ${chapter} ${articleNum} ${segment}`
+    });
+  });
+}
+
+function splitArticleContent(articleContent: string) {
+  const blocks = articleContent
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const segments: string[] = [];
+
+  for (const block of blocks) {
+    if (/^[-•]/.test(block) || /^（[一二三四五六七八九十\d]+）/.test(block)) {
+      segments.push(block.replace(/\n+/g, ' '));
+      continue;
+    }
+
+    const sentences = block.match(/[^。！？；]+[。！？；]?/g) || [block];
+    let current = '';
+
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (!trimmed) continue;
+
+      if (current && current.length + trimmed.length > 180) {
+        segments.push(current.trim());
+        current = trimmed;
+      } else {
+        current += trimmed;
+      }
+    }
+
+    if (current.trim()) {
+      segments.push(current.trim());
+    }
+  }
+
+  return segments.length > 0 ? segments : [articleContent];
 }
