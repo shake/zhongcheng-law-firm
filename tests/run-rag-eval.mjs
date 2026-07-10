@@ -1,13 +1,16 @@
 import fs from 'node:fs';
 
-const dataset = JSON.parse(fs.readFileSync(new URL('./rag-eval.json', import.meta.url), 'utf8'));
+const datasetPath = process.env.RAG_EVAL_DATASET || './rag-eval.json';
+const dataset = JSON.parse(fs.readFileSync(new URL(datasetPath, import.meta.url), 'utf8'));
 const endpoint = process.env.RAG_EVAL_ENDPOINT || 'https://58884a87.zhongcheng-law-firm.pages.dev/api/chat';
 const deployment = process.env.RAG_EVAL_DEPLOYMENT || '58884a87-fbdc-41ff-8721-c4f819f55255';
 const embeddingModel = '@cf/qwen/qwen3-embedding-0.6b';
-const vectorizeIndex = 'labor-law-qwen3-index';
+const vectorizeIndex = process.env.RAG_EVAL_INDEX || 'labor-law-qwen3-index';
+const reportName = process.env.RAG_EVAL_REPORT || 'rag-eval-2026-07-10';
+const reportTitle = process.env.RAG_EVAL_TITLE || '中文劳动法 RAG 评测完整报告';
 const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const token = `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ email: 'eval@zhongchenglaw.com', sub: 'rag-eval' })}.x`;
-const missingCoveragePatterns = ['当前法条库未收录', '未收录', '当前法条库没有', '当前参考法条未覆盖', '未明确规定', '无法根据当前法条库'];
+const missingCoveragePatterns = ['当前法条库未收录', '未收录', '当前法条库没有', '当前参考法条未覆盖', '未明确规定', '没有统一', '未包含', '未规定', '未明确', '无法根据当前法条库'];
 
 async function runCase(item) {
   const startedAt = Date.now();
@@ -84,7 +87,7 @@ const report = {
 const articleList = (items) => items.length ? items.join('、') : '无';
 const escapeCell = (value) => String(value ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ');
 const markdown = [
-  '# 中文劳动法 RAG 评测完整报告', '',
+  `# ${reportTitle}`, '',
   `生成时间：${generatedAt}`,
   `评测部署：\`${deployment}\``,
   `评测接口：\`${endpoint}\``,
@@ -115,7 +118,7 @@ const markdown = [
 ].join('\n');
 
 fs.mkdirSync(new URL('./reports/', import.meta.url), { recursive: true });
-fs.writeFileSync(new URL('./reports/rag-eval-2026-07-10.json', import.meta.url), JSON.stringify(report, null, 2) + '\n');
-fs.writeFileSync(new URL('./reports/rag-eval-2026-07-10.md', import.meta.url), markdown);
+fs.writeFileSync(new URL(`./reports/${reportName}.json`, import.meta.url), JSON.stringify(report, null, 2) + '\n');
+fs.writeFileSync(new URL(`./reports/${reportName}.md`, import.meta.url), markdown);
 console.log(JSON.stringify(totals));
 console.log(results.map((item) => `${item.id} ${item.pass ? 'PASS' : 'FAIL'} ${item.evaluationNote}`).join('\n'));

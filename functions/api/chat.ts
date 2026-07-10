@@ -363,7 +363,7 @@ type CorpusConfig = {
 };
 
 function getCorpusConfigs(env: Env, message: string): CorpusConfig[] {
-  const hasInsuranceSignal = /保险法|保险合同|保险人|投保人|被保险人|受益人|保险金|保单|理赔|保险费|保费|保险公司|保险代理|保险经纪|保险利益|如实告知|保险事故|保险责任|免责条款|人身保险|财产保险|寿险|再保险|雇主责任险/.test(message);
+  const hasInsuranceSignal = /保险法|保险活动|保险业务|保险合同|保险人|投保人|被保险人|受益人|保险金|保单|理赔|保险费|保费|保险公司|保险代理|保险经纪|保险利益|如实告知|保险事故|保险责任|免责条款|人身保险|财产保险|寿险|再保险|雇主责任险/.test(message);
   const hasLaborSignal = /劳动|工资|加班|辞退|解除|仲裁|劳动合同|社会保险|社保|工伤|用人单位|劳动者|试用期|年假|产假|调岗|降薪|裁员|竞业/.test(message);
   const labor: CorpusConfig = { index: env.VECTORIZE, source: CORPUS_SOURCE, version: CORPUS_VERSION };
   const insurance: CorpusConfig = { index: env.INSURANCE_VECTORIZE, source: INSURANCE_CORPUS_SOURCE, version: INSURANCE_CORPUS_VERSION };
