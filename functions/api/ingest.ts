@@ -3,6 +3,8 @@ interface Env {
   AI: any;
 }
 
+const CHINESE_NUMERAL_PATTERN = '[一二三四五六七八九十百零〇]+|\\d+';
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -100,8 +102,8 @@ function parseMarkdown(mdText: string) {
   let currentArticleIndex = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const rawLine = lines[i];
+    const line = rawLine.trim();
 
     // Check for chapter headers (e.g. ## 第一章　总则)
     if (line.startsWith('## ')) {
@@ -113,13 +115,13 @@ function parseMarkdown(mdText: string) {
         currentArticleContent = '';
       }
       currentChapter = line.replace('## ', '').trim();
-      const chapterMatch = currentChapter.match(/^(第(?:[一二三四五六七八九十百]+|\d+)章)/);
+      const chapterMatch = currentChapter.match(new RegExp(`^(第(?:${CHINESE_NUMERAL_PATTERN})章)`));
       currentChapterKey = chapterMatch ? chapterMatch[1] : currentChapter;
       continue;
     }
 
     // Check for article bold headers (e.g. **第一条**)
-    const articleMatch = line.match(/^\*\*(第(?:[一二三四五六七八九十百]+|\d+)条)\*\*(.*)/);
+    const articleMatch = line.match(new RegExp(`^\\*\\*(第(?:${CHINESE_NUMERAL_PATTERN})条)\\*\\*(.*)`));
     if (articleMatch) {
       // Flush previous article
       if (currentArticleNum && currentArticleContent) {
@@ -132,7 +134,7 @@ function parseMarkdown(mdText: string) {
     } else {
       // If it's additional text under the current article, append it
       if (currentArticleNum) {
-        currentArticleContent += '\n' + line;
+        currentArticleContent += '\n' + rawLine;
       }
     }
   }

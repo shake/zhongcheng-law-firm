@@ -6,6 +6,8 @@ interface Env {
   DB?: any; // Cloudflare D1 Database binding
 }
 
+const CHINESE_NUMERAL_PATTERN = '[一二三四五六七八九十百零〇]+|\\d+';
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
 
@@ -343,12 +345,12 @@ async function queryLawVectors(env: Env, questionVector: number[], hints: LawSea
   }> = [];
 
   if (hints.article) {
-    queries.push({ filter: { article: hints.article }, topK: 6 });
+    queries.push({ filter: { article: hints.article }, topK: 20 });
   } else if (hints.chapter) {
-    queries.push({ filter: { chapter: hints.chapter }, topK: 6 });
+    queries.push({ filter: { chapter: hints.chapter }, topK: 20 });
   }
 
-  queries.push({ topK: 8 });
+  queries.push({ topK: 20 });
 
   const results = await Promise.all(
     queries.map((query) =>
@@ -379,7 +381,7 @@ function mergeVectorMatches(matches: VectorizeMatch[]) {
     merged.push(match);
   }
 
-  return merged.slice(0, 8);
+  return merged;
 }
 
 function rerankVectorMatches(matches: VectorizeMatch[], hints: LawSearchHints, message: string) {
@@ -422,8 +424,8 @@ function rerankVectorMatches(matches: VectorizeMatch[], hints: LawSearchHints, m
 
 function extractLawSearchHints(message: string): LawSearchHints {
   const normalized = message.replace(/\s+/g, '');
-  const articleMatch = normalized.match(/第(?:[一二三四五六七八九十百]+|\d+)条/);
-  const chapterMatch = normalized.match(/第(?:[一二三四五六七八九十百]+|\d+)章/);
+  const articleMatch = normalized.match(new RegExp(`第(?:${CHINESE_NUMERAL_PATTERN})条`));
+  const chapterMatch = normalized.match(new RegExp(`第(?:${CHINESE_NUMERAL_PATTERN})章`));
 
   return {
     article: articleMatch ? articleMatch[0] : undefined,
