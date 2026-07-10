@@ -5,6 +5,10 @@ pages_build_output_dir = "."
 binding = "VECTORIZE"
 index_name = "labor-law-qwen3-index"
 
+[[vectorize]]
+binding = "INSURANCE_VECTORIZE"
+index_name = "insurance-law-qwen3-index"
+
 [ai]
 binding = "AI"
 

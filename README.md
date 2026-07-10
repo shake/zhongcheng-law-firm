@@ -28,6 +28,16 @@ After changing the ingest logic, re-run the ingest endpoint once so existing vec
 
 When the source document is materially revised, bump `CORPUS_VERSION` in `functions/_shared/rag.ts` and run the ingest endpoint again. Queries are restricted to the active corpus version so stale vectors cannot be returned.
 
+## Insurance Law Corpus
+
+The insurance-law corpus is isolated from the labor-law corpus in `insurance-law-qwen3-index`. It uses the same Qwen3 Embedding model and 1024-dimensional cosine vectors, with metadata indexes on `chapter`, `article`, `source`, and `corpusVersion`.
+
+Run the protected insurance ingestion endpoint after deploying a revised `insurance-law.md`:
+
+`/api/ingest-insurance?code=zhongcheng-insurance-ingest-2026`
+
+The chat route sends insurance-specific questions to the insurance index, labor-specific questions to the labor index, and cross-domain questions to both indexes with source labels in the context.
+
 ## RAG Architecture
 
 The site uses Retrieval-Augmented Generation (RAG): it retrieves relevant labor-law articles from Cloudflare Vectorize before asking Gemini to generate an answer.

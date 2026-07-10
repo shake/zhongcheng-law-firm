@@ -1,7 +1,15 @@
-import { CORPUS_VERSION, EMBEDDING_MODEL, QUERY_INSTRUCTION } from '../_shared/rag';
+import {
+  CORPUS_SOURCE,
+  CORPUS_VERSION,
+  EMBEDDING_MODEL,
+  INSURANCE_CORPUS_SOURCE,
+  INSURANCE_CORPUS_VERSION,
+  QUERY_INSTRUCTION
+} from '../_shared/rag';
 
 interface Env {
   VECTORIZE: any;
+  INSURANCE_VECTORIZE: any;
   AI: any;
   GEMINI_API_KEY: string;
   CLERK_SECRET_KEY?: string;
@@ -77,9 +85,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     }
     const questionVector = embeddingResponse.data[0];
 
-    // 2. Query Vectorize with metadata-aware recall
+    // 2. Route to the relevant corpus before metadata-aware recall.
     const searchHints = extractLawSearchHints(message);
-    const vectorizeResults = await queryLawVectors(env, questionVector, searchHints, message);
+    const corpusConfigs = getCorpusConfigs(env, message);
+    const vectorizeResults = (await Promise.all(
+      corpusConfigs.map((corpus) => queryCorpusVectors(corpus, questionVector, searchHints, message))
+    )).flat();
 
     // 3. Construct Context
     let lawContext = '';
@@ -88,9 +99,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         .map((match: any, idx: number) => {
           const text = match.metadata?.text || '';
           const score = Math.round((match.score || 0) * 100);
+          const source = match.metadata?.source ? ` · ${match.metadata.source}` : '';
           const chapter = match.metadata?.chapter ? ` · ${match.metadata.chapter}` : '';
           const article = match.metadata?.article ? ` ${match.metadata.article}` : '';
-          return `【参考法条 ${idx + 1}${chapter}${article} (相关度: ${score}%)】\n${text}`;
+          return `【参考法条 ${idx + 1}${source}${chapter}${article} (相关度: ${score}%)】\n${text}`;
         })
         .join('\n\n');
     } else {
@@ -98,15 +110,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     }
 
     // 4. Construct Consolidated Prompt
-    const promptText = `你是一位专业、严谨、温和且高效的劳动法合伙人律师。请结合下面提供的法律条例上下文，用最精炼、无冗余的语言解答用户的具体提问，避免任何语义重复。
+    const corpusNames = [...new Set(corpusConfigs.map((corpus) => corpus.source))].join('、');
+    const promptText = `你是一位专业、严谨、温和且高效的中国法律顾问。请结合下面提供的法律条例上下文，用最精炼、无冗余的语言解答用户的具体提问，避免任何语义重复。
 
 你的回答应当满足以下严密的结构要求：
-1. 【初步评估】：用2-3句话直接给出核心法律评估与定性结论（用人单位是否违法，劳动者的法定权利是什么）。此处只需简要陈述结论，切勿在此处引用法条原文或展开解释，以防与后续内容重复。
+1. 【初步评估】：用2-3句话直接给出核心法律评估与定性结论（相关主体是否违法，用户的法定权利是什么）。此处只需简要陈述结论，切勿在此处引用法条原文或展开解释，以防与后续内容重复。
 2. 【法条引述】：列出支持你结论的法律条款。仅列出条文序号与条文的核心原文，不要在这里加解释性描述。
 3. 【行动指引】：为劳动者提供3-4条最核心、可操作的维权步骤（例如：书面通知、保留关键证据、申请仲裁等），每条建议要简短有力，避免废话。
 4. 【专业免责】：在回答的最后，附加一句话的专业免责声明。
 
-重要约束：只能把下面检索到的参考法条作为法律依据。参考法条没有出现的法律规则、法条编号、金额、期限或赔偿标准，不得自行补充或猜测。如果问题涉及当前法条库未收录的法律，应明确说明“当前法条库未收录该法律依据”，不要用其他法律替代回答。
+重要约束：本次检索来源为 ${corpusNames}。只能把下面检索到的参考法条作为法律依据，不能把《劳动法》和《保险法》的条文互相替代。参考法条没有出现的法律规则、法条编号、金额、期限或赔偿标准，不得自行补充或猜测。如果问题涉及当前法条库未收录的法律，应明确说明“当前法条库未收录该法律依据”，不要用其他法律替代回答。
 
 请始终使用中文进行回答，格式使用 Markdown 排版。
 
@@ -343,23 +356,40 @@ type LawSearchHints = {
   article?: string;
 };
 
-async function queryLawVectors(env: Env, questionVector: number[], hints: LawSearchHints, message: string) {
+type CorpusConfig = {
+  index: any;
+  source: string;
+  version: string;
+};
+
+function getCorpusConfigs(env: Env, message: string): CorpusConfig[] {
+  const hasInsuranceSignal = /保险法|保险合同|保险人|投保人|被保险人|受益人|保险金|保单|理赔|保险费|保费|保险公司|保险代理|保险经纪|保险利益|如实告知|保险事故|保险责任|免责条款|人身保险|财产保险|寿险|再保险|雇主责任险/.test(message);
+  const hasLaborSignal = /劳动|工资|加班|辞退|解除|仲裁|劳动合同|社会保险|社保|工伤|用人单位|劳动者|试用期|年假|产假|调岗|降薪|裁员|竞业/.test(message);
+  const labor: CorpusConfig = { index: env.VECTORIZE, source: CORPUS_SOURCE, version: CORPUS_VERSION };
+  const insurance: CorpusConfig = { index: env.INSURANCE_VECTORIZE, source: INSURANCE_CORPUS_SOURCE, version: INSURANCE_CORPUS_VERSION };
+
+  if (hasInsuranceSignal && hasLaborSignal) return [labor, insurance];
+  if (hasInsuranceSignal) return [insurance];
+  return [labor];
+}
+
+async function queryCorpusVectors(corpus: CorpusConfig, questionVector: number[], hints: LawSearchHints, message: string) {
   const queries: Array<{
     filter?: Record<string, string>;
     topK: number;
   }> = [];
 
   if (hints.article) {
-    queries.push({ filter: { article: hints.article, corpusVersion: CORPUS_VERSION }, topK: 20 });
+    queries.push({ filter: { article: hints.article, corpusVersion: corpus.version }, topK: 20 });
   } else if (hints.chapter) {
-    queries.push({ filter: { chapter: hints.chapter, corpusVersion: CORPUS_VERSION }, topK: 20 });
+    queries.push({ filter: { chapter: hints.chapter, corpusVersion: corpus.version }, topK: 20 });
   }
 
-  queries.push({ filter: { corpusVersion: CORPUS_VERSION }, topK: 20 });
+  queries.push({ filter: { corpusVersion: corpus.version }, topK: 20 });
 
   const results = await Promise.all(
     queries.map((query) =>
-      env.VECTORIZE.query(questionVector, {
+      corpus.index.query(questionVector, {
         topK: query.topK,
         filter: query.filter,
         returnMetadata: 'all',
@@ -462,7 +492,23 @@ function extractLegalKeywords(message: string) {
     '经济补偿',
     '违法解除',
     '未签劳动合同',
-    '拖欠工资'
+    '拖欠工资',
+    '保险合同',
+    '投保人',
+    '被保险人',
+    '受益人',
+    '保险金',
+    '理赔',
+    '保险费',
+    '保费',
+    '保险公司',
+    '保险代理',
+    '保险经纪',
+    '保险利益',
+    '如实告知',
+    '保险事故',
+    '保险责任',
+    '免责条款'
   ];
 
   return words.filter((word) => {
