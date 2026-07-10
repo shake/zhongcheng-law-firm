@@ -40,13 +40,26 @@ async function runCase(item) {
     const retrievalLayerArticlesFound = item.expectedArticles.filter((article) =>
       retrievalArticles.some((retrieved) => retrieved.endsWith(`:${article}`))
     );
+    const retrievalLayerExpected = item.expectedRetrieval || item.expectedArticles;
+    const retrievalLayerExpectedFound = retrievalLayerExpected.filter((expected) =>
+      retrievalArticles.includes(expected) || retrievalArticles.some((retrieved) => retrieved.endsWith(`:${expected}`))
+    );
     const retrievalLayerPass = item.type === 'retrieval'
       ? retrievalLayerArticlesFound.length > 0
-      : true;
+      : item.type === 'cross_corpus'
+        ? retrievalLayerExpectedFound.length === retrievalLayerExpected.length
+        : true;
+    const routePass = item.expectedRoute
+      ? retrievalRoute === item.expectedRoute
+      : item.type === 'cross_corpus'
+        ? retrievalRoute === 'labor,insurance'
+        : true;
     const missingCoverageDisclosed = missingCoveragePatterns.some((pattern) => text.includes(pattern));
     const contentPass = item.type === 'retrieval'
       ? expectedArticlesFound.length > 0
-      : item.expectedArticles.every((article) => text.includes(article)) && missingCoverageDisclosed;
+      : item.type === 'cross_corpus'
+        ? item.expectedArticles.every((article) => text.includes(article))
+        : item.expectedArticles.every((article) => text.includes(article)) && missingCoverageDisclosed;
     return {
       ...item,
       httpStatus: response.status,
@@ -56,12 +69,18 @@ async function runCase(item) {
       retrievalRoute,
       retrievalArticles,
       retrievalLayerArticlesFound,
+      retrievalLayerExpectedFound,
       retrievalLayerPass,
+      routePass,
       missingCoverageDisclosed,
-      pass: response.ok && contentPass,
+      pass: response.ok && contentPass && routePass,
       evaluationNote: contentPass
         ? (item.type === 'retrieval' ? '至少命中一个预期法条编号。' : '已披露当前语料覆盖边界。')
-        : (item.type === 'retrieval' ? '未命中预期法条编号。' : '未充分披露当前语料覆盖边界。')
+        : (item.type === 'retrieval'
+          ? '未命中预期法条编号。'
+          : item.type === 'cross_corpus'
+            ? '未同时满足两部法律的回答、路由或原始召回要求。'
+            : '未充分披露当前语料覆盖边界。')
     };
   } catch (error) {
     return {
@@ -84,6 +103,7 @@ for (let i = 0; i < dataset.cases.length; i += 5) {
 
 const retrieval = results.filter((item) => item.type === 'retrieval');
 const guardrails = results.filter((item) => item.type === 'coverage_guardrail');
+const crossCorpus = results.filter((item) => item.type === 'cross_corpus');
 const passed = results.filter((item) => item.pass);
 const generatedAt = new Date().toISOString();
 const totals = {
@@ -95,6 +115,9 @@ const totals = {
   retrievalPassed: retrieval.filter((item) => item.pass).length,
   guardrailCases: guardrails.length,
   guardrailPassed: guardrails.filter((item) => item.pass).length,
+  crossCorpusCases: crossCorpus.length,
+  crossCorpusPassed: crossCorpus.filter((item) => item.pass).length,
+  crossCorpusRetrievalPassed: crossCorpus.filter((item) => item.retrievalLayerPass).length,
   retrievalLayerCases: retrieval.length,
   retrievalLayerPassed: retrieval.filter((item) => item.retrievalLayerPass).length,
   averageLatencyMs: Math.round(results.reduce((sum, item) => sum + item.latencyMs, 0) / results.length)
@@ -121,13 +144,13 @@ const markdown = [
   `Embedding 模型：\`${embeddingModel}\``,
   `Vectorize 索引：\`${vectorizeIndex}\``, '',
   '## 技术摘要', '',
-  `本次共运行 ${results.length} 道题，通过 ${passed.length} 道，失败 ${results.length - passed.length} 道，总通过率为 ${(passed.length / results.length * 100).toFixed(1)}%。召回题通过 ${totals.retrievalPassed}/${totals.retrievalCases}，语料边界题通过 ${totals.guardrailPassed}/${totals.guardrailCases}。`, '',
-  `召回层原始命中：${totals.retrievalLayerPassed}/${totals.retrievalCases}。该指标直接检查 Vectorize 返回的法条元数据，不依赖生成模型是否自行知道答案。`, '',
+  `本次共运行 ${results.length} 道题，通过 ${passed.length} 道，失败 ${results.length - passed.length} 道，总通过率为 ${(passed.length / results.length * 100).toFixed(1)}%。召回题通过 ${totals.retrievalPassed}/${totals.retrievalCases}，跨法案综合题通过 ${totals.crossCorpusPassed}/${totals.crossCorpusCases}，语料边界题通过 ${totals.guardrailPassed}/${totals.guardrailCases}。`, '',
+  `召回层原始命中：单法案 ${totals.retrievalLayerPassed}/${totals.retrievalCases}，跨法案 ${totals.crossCorpusRetrievalPassed}/${totals.crossCorpusCases}。该指标直接检查 Vectorize 返回的法条元数据，不依赖生成模型是否自行知道答案。`, '',
   '自动通过标准：端到端召回题回答中出现至少一个预期法条编号；召回层评测直接检查 X-RAG-Recall；语料边界题出现预期法条（如有）并明确披露当前法条库未覆盖。以上指标不等同于完整法律意见正确率。', '',
   '## 总体结果', '',
   '| 指标 | 结果 |', '| --- | ---: |',
   `| 总题数 | ${totals.cases} |`, `| 通过 | ${totals.passed} |`, `| 失败 | ${totals.failed} |`, `| 总通过率 | ${(totals.passRate * 100).toFixed(1)}% |`,
-  `| 法条召回题 | ${totals.retrievalPassed}/${totals.retrievalCases} |`, `| 原始召回层命中 | ${totals.retrievalLayerPassed}/${totals.retrievalCases} |`, `| 语料边界题 | ${totals.guardrailPassed}/${totals.guardrailCases} |`, `| 平均接口耗时 | ${totals.averageLatencyMs} ms |`, '',
+  `| 法条召回题 | ${totals.retrievalPassed}/${totals.retrievalCases} |`, `| 跨法案综合题 | ${totals.crossCorpusPassed}/${totals.crossCorpusCases} |`, `| 原始召回层命中 | ${totals.retrievalLayerPassed}/${totals.retrievalCases} |`, `| 语料边界题 | ${totals.guardrailPassed}/${totals.guardrailCases} |`, `| 平均接口耗时 | ${totals.averageLatencyMs} ms |`, '',
   '## 逐题结果', '',
   '| ID | 类型 | 分类 | 预期法条 | 回答命中 | 原始召回 | 状态 |', '| --- | --- | --- | --- | --- | --- | --- |',
   ...results.map((item) => `| ${item.id} | ${item.type} | ${escapeCell(item.category)} | ${articleList(item.expectedArticles)} | ${articleList(item.expectedArticlesFound)} | ${item.retrievalLayerPass ? 'PASS' : 'FAIL'} | ${item.pass ? 'PASS' : 'FAIL'} |`), '',
@@ -135,7 +158,7 @@ const markdown = [
   ...results.flatMap((item) => [
     `### ${item.id} · ${item.category} · ${item.pass ? 'PASS' : 'FAIL'}`, '',
     `问题：${item.question}`, '',
-    `预期法条：${articleList(item.expectedArticles)}；回答命中：${articleList(item.expectedArticlesFound)}；原始召回：${articleList(item.retrievalArticles)}；路由：${item.retrievalRoute || '未知'}；边界披露：${item.missingCoverageDisclosed ? '是' : '否'}；HTTP：${item.httpStatus}；耗时：${item.latencyMs} ms。`, '',
+    `预期法条：${articleList(item.expectedArticles)}；回答命中：${articleList(item.expectedArticlesFound)}；原始召回：${articleList(item.retrievalArticles)}；路由：${item.retrievalRoute || '未知'}；路由通过：${item.routePass ? '是' : '否'}；边界披露：${item.missingCoverageDisclosed ? '是' : '否'}；HTTP：${item.httpStatus}；耗时：${item.latencyMs} ms。`, '',
     item.response.trim() || '无响应内容。', ''
   ]),
   '## 方法与限制', '',
