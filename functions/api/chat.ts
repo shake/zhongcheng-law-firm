@@ -6,6 +6,11 @@ import {
   INSURANCE_CORPUS_VERSION,
   QUERY_INSTRUCTION
 } from '../_shared/rag';
+import {
+  mergeVectorMatches,
+  rerankVectorMatches,
+  routeCorpusNames
+} from '../_shared/retrieval.js';
 
 interface Env {
   VECTORIZE: any;
@@ -88,9 +93,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // 2. Route to the relevant corpus before metadata-aware recall.
     const searchHints = extractLawSearchHints(message);
     const corpusConfigs = getCorpusConfigs(env, message);
-    const vectorizeResults = (await Promise.all(
-      corpusConfigs.map((corpus) => queryCorpusVectors(corpus, questionVector, searchHints, message))
-    )).flat();
+    const corpusResults = await Promise.all(
+      corpusConfigs.map((corpus) => queryCorpusVectors(corpus, questionVector, searchHints))
+    );
+    const vectorizeResults = rerankVectorMatches(
+      mergeVectorMatches(corpusResults.flat()),
+      searchHints,
+      message,
+      10
+    );
 
     // 3. Construct Context
     let lawContext = '';
@@ -301,13 +312,19 @@ ${lawContext}
       }
     })();
 
-    return new Response(readable, {
-      headers: {
+    const headers: Record<string, string> = {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive'
-      }
-    });
+    };
+    if (request.headers.get('X-RAG-Eval') === '1') {
+      headers['X-RAG-Route'] = corpusConfigs.map((corpus) => corpus.key).join(',');
+      headers['X-RAG-Recall'] = vectorizeResults
+        .map((match: VectorizeMatch) => encodeURIComponent(`${match.metadata?.source || 'unknown'}:${match.metadata?.article || 'unknown'}`))
+        .join(',');
+    }
+
+    return new Response(readable, { headers });
 
   } catch (error: any) {
     return new Response(JSON.stringify({
@@ -357,23 +374,22 @@ type LawSearchHints = {
 };
 
 type CorpusConfig = {
+  key: 'labor' | 'insurance';
   index: any;
   source: string;
   version: string;
 };
 
 function getCorpusConfigs(env: Env, message: string): CorpusConfig[] {
-  const hasInsuranceSignal = /保险法|保险活动|保险业务|保险合同|保险人|投保人|被保险人|受益人|保险金|保单|理赔|保险费|保费|保险公司|保险代理|保险经纪|保险利益|如实告知|保险事故|保险责任|免责条款|人身保险|财产保险|寿险|再保险|雇主责任险/.test(message);
-  const hasLaborSignal = /劳动|工资|加班|辞退|解除|仲裁|劳动合同|社会保险|社保|工伤|用人单位|劳动者|试用期|年假|产假|调岗|降薪|裁员|竞业/.test(message);
-  const labor: CorpusConfig = { index: env.VECTORIZE, source: CORPUS_SOURCE, version: CORPUS_VERSION };
-  const insurance: CorpusConfig = { index: env.INSURANCE_VECTORIZE, source: INSURANCE_CORPUS_SOURCE, version: INSURANCE_CORPUS_VERSION };
+  const corpora: Record<'labor' | 'insurance', CorpusConfig> = {
+    labor: { key: 'labor', index: env.VECTORIZE, source: CORPUS_SOURCE, version: CORPUS_VERSION },
+    insurance: { key: 'insurance', index: env.INSURANCE_VECTORIZE, source: INSURANCE_CORPUS_SOURCE, version: INSURANCE_CORPUS_VERSION }
+  };
 
-  if (hasInsuranceSignal && hasLaborSignal) return [labor, insurance];
-  if (hasInsuranceSignal) return [insurance];
-  return [labor];
+  return routeCorpusNames(message).map((key) => corpora[key]);
 }
 
-async function queryCorpusVectors(corpus: CorpusConfig, questionVector: number[], hints: LawSearchHints, message: string) {
+async function queryCorpusVectors(corpus: CorpusConfig, questionVector: number[], hints: LawSearchHints) {
   const queries: Array<{
     filter?: Record<string, string>;
     topK: number;
@@ -398,63 +414,8 @@ async function queryCorpusVectors(corpus: CorpusConfig, questionVector: number[]
     )
   );
 
-  return rerankVectorMatches(
-    mergeVectorMatches(results.flatMap((item) => item?.matches || [])),
-    hints,
-    message
-  );
-}
-
-function mergeVectorMatches(matches: VectorizeMatch[]) {
-  const seen = new Set<string>();
-  const merged: VectorizeMatch[] = [];
-
-  for (const match of matches) {
-    const key = match.id || `${match.metadata?.chapter || ''}:${match.metadata?.article || ''}:${match.metadata?.text || ''}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(match);
-  }
-
-  return merged;
-}
-
-function rerankVectorMatches(matches: VectorizeMatch[], hints: LawSearchHints, message: string) {
-  const keywords = extractLegalKeywords(message);
-
-  return matches
-    .map((match) => {
-      const text = match.metadata?.text || '';
-      const chapter = match.metadata?.chapter || '';
-      const article = match.metadata?.article || '';
-      let rank = match.score || 0;
-
-      if (hints.article && article === hints.article) {
-        rank += 2;
-      }
-      if (hints.chapter && chapter === hints.chapter) {
-        rank += 1;
-      }
-
-      for (const keyword of keywords) {
-        if (text.includes(keyword)) {
-          rank += 0.08;
-        }
-      }
-
-      rank += Math.max(0, 0.12 - Math.min(text.length, 240) / 2000);
-
-      return { match, rank };
-    })
-    .sort((a, b) => {
-      if (b.rank !== a.rank) return b.rank - a.rank;
-
-      const aText = a.match.metadata?.text || '';
-      const bText = b.match.metadata?.text || '';
-      return aText.length - bText.length;
-    })
-    .slice(0, 8)
-    .map((item) => item.match);
+  // Keep the per-corpus candidate pool intact; global reranking happens after both indexes return.
+  return mergeVectorMatches(results.flatMap((item) => item?.matches || []));
 }
 
 function extractLawSearchHints(message: string): LawSearchHints {
@@ -466,54 +427,6 @@ function extractLawSearchHints(message: string): LawSearchHints {
     article: articleMatch ? articleMatch[0] : undefined,
     chapter: chapterMatch ? chapterMatch[0] : undefined
   };
-}
-
-function extractLegalKeywords(message: string) {
-  const words = [
-    '试用期',
-    '工资',
-    '加班',
-    '辞退',
-    '解除',
-    '仲裁',
-    '补偿',
-    '赔偿',
-    '社保',
-    '合同',
-    '年假',
-    '病假',
-    '产假',
-    '调岗',
-    '降薪',
-    '旷工',
-    '裁员',
-    '竞业',
-    '工伤',
-    '经济补偿',
-    '违法解除',
-    '未签劳动合同',
-    '拖欠工资',
-    '保险合同',
-    '投保人',
-    '被保险人',
-    '受益人',
-    '保险金',
-    '理赔',
-    '保险费',
-    '保费',
-    '保险公司',
-    '保险代理',
-    '保险经纪',
-    '保险利益',
-    '如实告知',
-    '保险事故',
-    '保险责任',
-    '免责条款'
-  ];
-
-  return words.filter((word) => {
-    return message.includes(word);
-  });
 }
 
 async function verifyClerkToken(token: string, clerkSecretKey: string): Promise<boolean> {

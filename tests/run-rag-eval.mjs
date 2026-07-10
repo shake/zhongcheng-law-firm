@@ -17,11 +17,32 @@ async function runCase(item) {
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-RAG-Eval': '1'
+      },
       body: JSON.stringify({ message: item.question })
     });
     const text = await response.text();
     const expectedArticlesFound = item.expectedArticles.filter((article) => text.includes(article));
+    const retrievalRoute = response.headers.get('X-RAG-Route') || '';
+    const retrievalArticles = (response.headers.get('X-RAG-Recall') || '')
+      .split(',')
+      .map((article) => {
+        try {
+          return decodeURIComponent(article.trim());
+        } catch {
+          return article.trim();
+        }
+      })
+      .filter(Boolean);
+    const retrievalLayerArticlesFound = item.expectedArticles.filter((article) =>
+      retrievalArticles.some((retrieved) => retrieved.endsWith(`:${article}`))
+    );
+    const retrievalLayerPass = item.type === 'retrieval'
+      ? retrievalLayerArticlesFound.length > 0
+      : true;
     const missingCoverageDisclosed = missingCoveragePatterns.some((pattern) => text.includes(pattern));
     const contentPass = item.type === 'retrieval'
       ? expectedArticlesFound.length > 0
@@ -32,6 +53,10 @@ async function runCase(item) {
       latencyMs: Date.now() - startedAt,
       response: text,
       expectedArticlesFound,
+      retrievalRoute,
+      retrievalArticles,
+      retrievalLayerArticlesFound,
+      retrievalLayerPass,
       missingCoverageDisclosed,
       pass: response.ok && contentPass,
       evaluationNote: contentPass
@@ -70,6 +95,8 @@ const totals = {
   retrievalPassed: retrieval.filter((item) => item.pass).length,
   guardrailCases: guardrails.length,
   guardrailPassed: guardrails.filter((item) => item.pass).length,
+  retrievalLayerCases: retrieval.length,
+  retrievalLayerPassed: retrieval.filter((item) => item.retrievalLayerPass).length,
   averageLatencyMs: Math.round(results.reduce((sum, item) => sum + item.latencyMs, 0) / results.length)
 };
 const report = {
@@ -95,19 +122,20 @@ const markdown = [
   `Vectorize 索引：\`${vectorizeIndex}\``, '',
   '## 技术摘要', '',
   `本次共运行 ${results.length} 道题，通过 ${passed.length} 道，失败 ${results.length - passed.length} 道，总通过率为 ${(passed.length / results.length * 100).toFixed(1)}%。召回题通过 ${totals.retrievalPassed}/${totals.retrievalCases}，语料边界题通过 ${totals.guardrailPassed}/${totals.guardrailCases}。`, '',
-  '自动通过标准：召回题回答中出现至少一个预期法条编号；语料边界题出现预期法条（如有）并明确披露当前法条库未覆盖。该指标验证召回和边界控制，不等同于完整法律意见正确率。', '',
+  `召回层原始命中：${totals.retrievalLayerPassed}/${totals.retrievalCases}。该指标直接检查 Vectorize 返回的法条元数据，不依赖生成模型是否自行知道答案。`, '',
+  '自动通过标准：端到端召回题回答中出现至少一个预期法条编号；召回层评测直接检查 X-RAG-Recall；语料边界题出现预期法条（如有）并明确披露当前法条库未覆盖。以上指标不等同于完整法律意见正确率。', '',
   '## 总体结果', '',
   '| 指标 | 结果 |', '| --- | ---: |',
   `| 总题数 | ${totals.cases} |`, `| 通过 | ${totals.passed} |`, `| 失败 | ${totals.failed} |`, `| 总通过率 | ${(totals.passRate * 100).toFixed(1)}% |`,
-  `| 法条召回题 | ${totals.retrievalPassed}/${totals.retrievalCases} |`, `| 语料边界题 | ${totals.guardrailPassed}/${totals.guardrailCases} |`, `| 平均接口耗时 | ${totals.averageLatencyMs} ms |`, '',
+  `| 法条召回题 | ${totals.retrievalPassed}/${totals.retrievalCases} |`, `| 原始召回层命中 | ${totals.retrievalLayerPassed}/${totals.retrievalCases} |`, `| 语料边界题 | ${totals.guardrailPassed}/${totals.guardrailCases} |`, `| 平均接口耗时 | ${totals.averageLatencyMs} ms |`, '',
   '## 逐题结果', '',
-  '| ID | 类型 | 分类 | 预期法条 | 命中法条 | 状态 |', '| --- | --- | --- | --- | --- | --- |',
-  ...results.map((item) => `| ${item.id} | ${item.type} | ${escapeCell(item.category)} | ${articleList(item.expectedArticles)} | ${articleList(item.expectedArticlesFound)} | ${item.pass ? 'PASS' : 'FAIL'} |`), '',
+  '| ID | 类型 | 分类 | 预期法条 | 回答命中 | 原始召回 | 状态 |', '| --- | --- | --- | --- | --- | --- | --- |',
+  ...results.map((item) => `| ${item.id} | ${item.type} | ${escapeCell(item.category)} | ${articleList(item.expectedArticles)} | ${articleList(item.expectedArticlesFound)} | ${item.retrievalLayerPass ? 'PASS' : 'FAIL'} | ${item.pass ? 'PASS' : 'FAIL'} |`), '',
   '## 详细回答', '',
   ...results.flatMap((item) => [
     `### ${item.id} · ${item.category} · ${item.pass ? 'PASS' : 'FAIL'}`, '',
     `问题：${item.question}`, '',
-    `预期法条：${articleList(item.expectedArticles)}；实际命中：${articleList(item.expectedArticlesFound)}；边界披露：${item.missingCoverageDisclosed ? '是' : '否'}；HTTP：${item.httpStatus}；耗时：${item.latencyMs} ms。`, '',
+    `预期法条：${articleList(item.expectedArticles)}；回答命中：${articleList(item.expectedArticlesFound)}；原始召回：${articleList(item.retrievalArticles)}；路由：${item.retrievalRoute || '未知'}；边界披露：${item.missingCoverageDisclosed ? '是' : '否'}；HTTP：${item.httpStatus}；耗时：${item.latencyMs} ms。`, '',
     item.response.trim() || '无响应内容。', ''
   ]),
   '## 方法与限制', '',
