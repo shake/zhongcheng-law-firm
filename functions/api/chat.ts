@@ -1,3 +1,5 @@
+import { CORPUS_VERSION, EMBEDDING_MODEL, QUERY_INSTRUCTION } from '../_shared/rag';
+
 interface Env {
   VECTORIZE: any;
   AI: any;
@@ -7,8 +9,6 @@ interface Env {
 }
 
 const CHINESE_NUMERAL_PATTERN = '[一二三四五六七八九十百零〇]+|\\d+';
-const EMBEDDING_MODEL = '@cf/qwen/qwen3-embedding-0.6b';
-const QUERY_INSTRUCTION = 'Given a Chinese labor law question, retrieve the relevant passages from the Chinese Labor Law.';
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -105,6 +105,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 2. 【法条引述】：列出支持你结论的法律条款。仅列出条文序号与条文的核心原文，不要在这里加解释性描述。
 3. 【行动指引】：为劳动者提供3-4条最核心、可操作的维权步骤（例如：书面通知、保留关键证据、申请仲裁等），每条建议要简短有力，避免废话。
 4. 【专业免责】：在回答的最后，附加一句话的专业免责声明。
+
+重要约束：只能把下面检索到的参考法条作为法律依据。参考法条没有出现的法律规则、法条编号、金额、期限或赔偿标准，不得自行补充或猜测。如果问题涉及当前法条库未收录的法律，应明确说明“当前法条库未收录该法律依据”，不要用其他法律替代回答。
 
 请始终使用中文进行回答，格式使用 Markdown 排版。
 
@@ -331,6 +333,7 @@ type VectorizeMatch = {
     text?: string;
     chapter?: string;
     article?: string;
+    corpusVersion?: string;
     source?: string;
   };
 };
@@ -347,12 +350,12 @@ async function queryLawVectors(env: Env, questionVector: number[], hints: LawSea
   }> = [];
 
   if (hints.article) {
-    queries.push({ filter: { article: hints.article }, topK: 20 });
+    queries.push({ filter: { article: hints.article, corpusVersion: CORPUS_VERSION }, topK: 20 });
   } else if (hints.chapter) {
-    queries.push({ filter: { chapter: hints.chapter }, topK: 20 });
+    queries.push({ filter: { chapter: hints.chapter, corpusVersion: CORPUS_VERSION }, topK: 20 });
   }
 
-  queries.push({ topK: 20 });
+  queries.push({ filter: { corpusVersion: CORPUS_VERSION }, topK: 20 });
 
   const results = await Promise.all(
     queries.map((query) =>

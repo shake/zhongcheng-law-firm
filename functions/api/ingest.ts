@@ -1,10 +1,11 @@
+import { CORPUS_SOURCE, CORPUS_VERSION, EMBEDDING_MODEL } from '../_shared/rag';
+
 interface Env {
   VECTORIZE: any;
   AI: any;
 }
 
 const CHINESE_NUMERAL_PATTERN = '[一二三四五六七八九十百零〇]+|\\d+';
-const EMBEDDING_MODEL = '@cf/qwen/qwen3-embedding-0.6b';
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -59,7 +60,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             text: item.text,
             chapter: item.chapterKey,
             article: item.articleKey,
-            source: '中华人民共和国劳动法'
+            source: CORPUS_SOURCE,
+            corpusVersion: CORPUS_VERSION
           }
         };
       });

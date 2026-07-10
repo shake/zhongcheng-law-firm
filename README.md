@@ -21,10 +21,12 @@ Cloudflare Zero Trust dashboard setup:
 
 ## Vectorize Recall
 
-The labor-law index uses `@cf/qwen/qwen3-embedding-0.6b` with 1024-dimensional vectors and metadata indexes on `chapter`, `article`, and `source`.
+The labor-law index uses `@cf/qwen/qwen3-embedding-0.6b` with 1024-dimensional vectors and metadata indexes on `chapter`, `article`, `source`, and `corpusVersion`.
 After changing the ingest logic, re-run the ingest endpoint once so existing vectors pick up the normalized metadata:
 
 `/api/ingest?code=zhongcheng-ingest-2026`
+
+When the source document is materially revised, bump `CORPUS_VERSION` in `functions/_shared/rag.ts` and run the ingest endpoint again. Queries are restricted to the active corpus version so stale vectors cannot be returned.
 
 ## RAG Architecture
 
