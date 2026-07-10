@@ -7,6 +7,8 @@ interface Env {
 }
 
 const CHINESE_NUMERAL_PATTERN = '[一二三四五六七八九十百零〇]+|\\d+';
+const EMBEDDING_MODEL = '@cf/qwen/qwen3-embedding-0.6b';
+const QUERY_INSTRUCTION = 'Given a Chinese labor law question, retrieve the relevant passages from the Chinese Labor Law.';
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -65,9 +67,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // Output server audit log: Binding user email with the question asked
     console.log(`[CONSULTATION LOG] User Email: ${userEmail} | Question: ${message}`);
 
-    // 1. Generate Query Vector using bge-m3 (1024 dims)
-    const embeddingResponse = await env.AI.run('@cf/baai/bge-m3', {
-      text: [message]
+    // 1. Generate a Qwen3 query vector (1024 dims) with a retrieval instruction.
+    const embeddingResponse = await env.AI.run(EMBEDDING_MODEL, {
+      text: [`Instruct: ${QUERY_INSTRUCTION}\nQuery: ${message}`]
     });
 
     if (!embeddingResponse || !embeddingResponse.data || !embeddingResponse.data[0]) {

@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">中成律所 RAG 架构图</title>
+  <desc id="desc">展示法律法规入库和用户问答两条 RAG 链路。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f2e9"/>
+      <stop offset="1" stop-color="#e7edf3"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#132b43"/>
+      <stop offset="1" stop-color="#204d69"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2824b"/>
+      <stop offset="1" stop-color="#c65b32"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#17324a" flood-opacity=".14"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#6d8190"/>
+    </marker>
+    <style>
+      .sans { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+      .title { font-size: 42px; font-weight: 700; fill: #132b43; letter-spacing: 2px; }
+      .subtitle { font-size: 18px; fill: #617383; letter-spacing: 1px; }
+      .lane { font-size: 18px; font-weight: 700; fill: #fff; letter-spacing: 1px; }
+      .node-title { font-size: 20px; font-weight: 700; fill: #132b43; }
+      .node-copy { font-size: 15px; fill: #536878; }
+      .small { font-size: 14px; fill: #667b8b; }
+      .label { font-size: 13px; font-weight: 700; fill: #b6532f; letter-spacing: 1px; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="1200" fill="url(#bg)"/>
+  <circle cx="1040" cy="120" r="190" fill="#d9e4eb" opacity=".45"/>
+  <circle cx="80" cy="1080" r="220" fill="#ecd8c6" opacity=".42"/>
+
+  <text x="80" y="92" class="sans title">中成律所 · RAG 架构</text>
+  <text x="82" y="126" class="sans subtitle">Retrieval-Augmented Generation for Chinese Labor Law</text>
+
+  <rect x="80" y="165" width="1040" height="430" rx="28" fill="#fffdf9" opacity=".9" filter="url(#shadow)"/>
+  <rect x="80" y="165" width="1040" height="54" rx="28" fill="url(#orange)"/>
+  <rect x="80" y="193" width="1040" height="26" fill="url(#orange)"/>
+  <text x="112" y="201" class="sans lane">01 · 法律知识入库 / OFFLINE INGESTION</text>
+
+  <g filter="url(#shadow)">
+    <rect x="120" y="280" width="210" height="150" rx="18" fill="#fff"/>
+    <rect x="360" y="280" width="210" height="150" rx="18" fill="#fff"/>
+    <rect x="600" y="280" width="210" height="150" rx="18" fill="#fff"/>
+    <rect x="840" y="280" width="240" height="150" rx="18" fill="url(#navy)"/>
+  </g>
+  <text x="145" y="323" class="sans node-title">劳动法原文</text>
+  <text x="145" y="354" class="sans node-copy">labor-law.md</text>
+  <text x="145" y="384" class="sans small">107 条 · 13 章</text>
+  <text x="385" y="323" class="sans node-title">结构化切块</text>
+  <text x="385" y="354" class="sans node-copy">章节 / 法条 / 段落</text>
+  <text x="385" y="384" class="sans small">当前生成 152 个 chunks</text>
+  <text x="625" y="323" class="sans node-title">Embedding</text>
+  <text x="625" y="354" class="mono node-copy">@cf/baai/bge-m3</text>
+  <text x="625" y="384" class="sans small">多语言 · 1024 维</text>
+  <text x="865" y="323" class="sans" font-size="20" font-weight="700" fill="#fff">Vectorize</text>
+  <text x="865" y="354" class="mono" font-size="15" fill="#dbe8ef">labor-law-index</text>
+  <text x="865" y="384" class="sans" font-size="14" fill="#c0d3df">向量 + metadata</text>
+  <text x="865" y="408" class="sans" font-size="13" fill="#c0d3df">chapter · article · source</text>
+
+  <path d="M330 355 H350" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M570 355 H590" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M810 355 H830" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="120" y="510" class="sans label">一次性或法规更新时执行</text>
+  <text x="120" y="542" class="sans small">/api/ingest → Workers AI → Vectorize upsert</text>
+
+  <rect x="80" y="635" width="1040" height="430" rx="28" fill="#fffdf9" opacity=".9" filter="url(#shadow)"/>
+  <rect x="80" y="635" width="1040" height="54" rx="28" fill="url(#navy)"/>
+  <rect x="80" y="663" width="1040" height="26" fill="url(#navy)"/>
+  <text x="112" y="671" class="sans lane">02 · 用户问答 / ONLINE RETRIEVAL &amp; GENERATION</text>
+
+  <g filter="url(#shadow)">
+    <rect x="120" y="750" width="185" height="150" rx="18" fill="#fff"/>
+    <rect x="335" y="750" width="205" height="150" rx="18" fill="#fff"/>
+    <rect x="570" y="750" width="205" height="150" rx="18" fill="#fff"/>
+    <rect x="805" y="750" width="275" height="150" rx="18" fill="url(#orange)"/>
+  </g>
+  <text x="145" y="793" class="sans node-title">用户问题</text>
+  <text x="145" y="824" class="sans node-copy">法律咨询输入</text>
+  <text x="145" y="854" class="sans small">Bearer Token 认证</text>
+  <text x="360" y="793" class="sans node-title">问题向量化</text>
+  <text x="360" y="824" class="mono node-copy">bge-m3 · 1024 维</text>
+  <text x="360" y="854" class="sans small">与入库使用同一模型</text>
+  <text x="595" y="793" class="sans node-title">召回与二次排序</text>
+  <text x="595" y="824" class="sans node-copy">topK 20 · metadata filter</text>
+  <text x="595" y="854" class="sans small">去重 · 关键词加权 · 重排</text>
+  <text x="830" y="793" class="sans" font-size="20" font-weight="700" fill="#fff">Gemini</text>
+  <text x="830" y="824" class="mono" font-size="15" fill="#fff4ed">gemini-3.1-flash-lite</text>
+  <text x="830" y="854" class="sans" font-size="14" fill="#ffe2d4">法条上下文 + 用户问题</text>
+
+  <path d="M305 825 H325" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M540 825 H560" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M775 825 H795" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M942 900 V950 H210 V900" fill="none" stroke="#6d8190" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="120" y="982" class="sans label">RAG 输出</text>
+  <text x="120" y="1014" class="sans small">流式法律分析 · 法条引述 · 行动指引 · 专业免责声明</text>
+  <text x="885" y="1014" class="sans small">D1：记录问题与回答</text>
+
+  <text x="80" y="1140" class="sans small">核心原则：先检索真实法条，再由大模型生成回答。</text>
+  <text x="1120" y="1140" text-anchor="end" class="mono small">ZHONGCHENG LAW FIRM</text>
+</svg>

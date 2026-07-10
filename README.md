@@ -21,7 +21,15 @@ Cloudflare Zero Trust dashboard setup:
 
 ## Vectorize Recall
 
-The labor-law index uses metadata indexes on `chapter`, `article`, and `source`.
+The labor-law index uses `@cf/qwen/qwen3-embedding-0.6b` with 1024-dimensional vectors and metadata indexes on `chapter`, `article`, and `source`.
 After changing the ingest logic, re-run the ingest endpoint once so existing vectors pick up the normalized metadata:
 
 `/api/ingest?code=zhongcheng-ingest-2026`
+
+## RAG Architecture
+
+The site uses Retrieval-Augmented Generation (RAG): it retrieves relevant labor-law articles from Cloudflare Vectorize before asking Gemini to generate an answer.
+
+<p align="center">
+  <img src="docs/rag-architecture.svg" alt="Zhongcheng Law Firm RAG architecture" width="720">
+</p>

@@ -4,6 +4,7 @@ interface Env {
 }
 
 const CHINESE_NUMERAL_PATTERN = '[一二三四五六七八九十百零〇]+|\\d+';
+const EMBEDDING_MODEL = '@cf/qwen/qwen3-embedding-0.6b';
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -39,8 +40,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const batch = chunks.slice(i, i + batchSize);
       const texts = batch.map(c => c.text);
 
-      // Generate embeddings using the multilingual BGE-m3 model (1024 dimensions)
-      const aiResponse = await env.AI.run('@cf/baai/bge-m3', {
+      // Generate document embeddings with Qwen3 Embedding (1024 dimensions).
+      const aiResponse = await env.AI.run(EMBEDDING_MODEL, {
         text: texts
       });
 

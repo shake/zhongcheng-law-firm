@@ -3,7 +3,7 @@ pages_build_output_dir = "."
 
 [[vectorize]]
 binding = "VECTORIZE"
-index_name = "labor-law-index"
+index_name = "labor-law-qwen3-index"
 
 [ai]
 binding = "AI"
