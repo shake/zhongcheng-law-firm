@@ -58,8 +58,8 @@
   <text x="385" y="354" class="sans node-copy">章节 / 法条 / 段落</text>
   <text x="385" y="384" class="sans small">当前生成 152 个 chunks</text>
   <text x="625" y="323" class="sans node-title">Embedding</text>
-  <text x="625" y="354" class="mono node-copy">@cf/baai/bge-m3</text>
-  <text x="625" y="384" class="sans small">多语言 · 1024 维</text>
+  <text x="625" y="354" class="mono node-copy">@cf/qwen/qwen3-embedding-0.6b</text>
+  <text x="625" y="384" class="sans small">多语言 · 指令感知 · 1024 维</text>
   <text x="865" y="323" class="sans" font-size="20" font-weight="700" fill="#fff">Vectorize</text>
   <text x="865" y="354" class="mono" font-size="15" fill="#dbe8ef">labor-law-index</text>
   <text x="865" y="384" class="sans" font-size="14" fill="#c0d3df">向量 + metadata</text>
@@ -86,8 +86,8 @@
   <text x="145" y="824" class="sans node-copy">法律咨询输入</text>
   <text x="145" y="854" class="sans small">Bearer Token 认证</text>
   <text x="360" y="793" class="sans node-title">问题向量化</text>
-  <text x="360" y="824" class="mono node-copy">bge-m3 · 1024 维</text>
-  <text x="360" y="854" class="sans small">与入库使用同一模型</text>
+  <text x="360" y="824" class="mono node-copy">qwen3-embedding-0.6b · 1024 维</text>
+  <text x="360" y="854" class="sans small">查询指令 · 与入库使用同一模型</text>
   <text x="595" y="793" class="sans node-title">召回与二次排序</text>
   <text x="595" y="824" class="sans node-copy">topK 20 · metadata filter</text>
   <text x="595" y="854" class="sans small">去重 · 关键词加权 · 重排</text>
