@@ -106,7 +106,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         })
         .join('\n\n');
     } else {
-      lawContext = '未在数据库中检索到直接相关的《中华人民共和国劳动法》条文。';
+      lawContext = '未在当前检索范围内检索到直接相关的法律条文。';
     }
 
     // 4. Construct Consolidated Prompt
