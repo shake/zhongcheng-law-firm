@@ -1,6 +1,6 @@
 # zhongcheng-law-firm
 
-Cloudflare Pages site for the Zhongcheng Law Firm project.
+Cloudflare Pages site for the ABC律师事务所 project.
 
 ## Admin Access
 
@@ -127,5 +127,5 @@ The cross-law cases are especially important: a response only passes when both t
 The site uses Retrieval-Augmented Generation (RAG): it retrieves relevant legal articles from one or both Cloudflare Vectorize indexes, balances and reranks the evidence, then asks Gemini to generate an answer constrained to the retrieved articles.
 
 <p align="center">
-  <img src="docs/rag-architecture.svg" alt="Zhongcheng Law Firm RAG architecture" width="720">
+  <img src="docs/rag-architecture.svg" alt="ABC律师事务所 RAG architecture" width="720">
 </p>

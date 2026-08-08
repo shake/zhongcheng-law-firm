@@ -273,7 +273,7 @@ function initLaborLawChatRoom() {
     appendChatMessage('user', query);
     chatInputField.value = '';
 
-    const loadingMessageElement = appendChatMessage('loading', '中成律师正在为您检索劳动法条并进行合规研判...');
+    const loadingMessageElement = appendChatMessage('loading', 'ABC律师正在为您检索劳动法条并进行合规研判...');
 
     try {
       let token = 'dummy-development-token';

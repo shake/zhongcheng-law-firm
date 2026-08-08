@@ -1,5 +1,5 @@
 /* ==========================================================================
-   EDITORIAL GRID / MAGAZINE STYLE SHEET - ZHONGCHENG LAW FIRM (贵阳中成律师事务所)
+   EDITORIAL GRID / MAGAZINE STYLE SHEET - ABC LAW FIRM (ABC律师事务所)
    Theme: High-End Print Journal (Warm Cream, Deep Charcoal, Burgundy Accents)
    ========================================================================== */
 
@@ -785,7 +785,7 @@ p {
 }
 
 .official-seal::before {
-  content: "ZHONGCHENG";
+  content: "ABC LAW";
   font-size: 0.55rem;
   font-weight: 900;
   color: var(--accent);
@@ -794,7 +794,7 @@ p {
 }
 
 .official-seal::after {
-  content: "★ 中成律所 ★";
+  content: "★ ABC律师事务所 ★";
   font-size: 0.55rem;
   font-weight: 700;
   color: var(--accent);

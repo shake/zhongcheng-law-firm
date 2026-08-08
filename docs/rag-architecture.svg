@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
-  <title id="title">中成律所 RAG 架构图</title>
+  <title id="title">ABC律师事务所 RAG 架构图</title>
   <desc id="desc">展示劳动法和保险法双索引入库、综合问题双库召回以及法律问答生成两条 RAG 链路。</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -37,7 +37,7 @@
   <circle cx="1040" cy="120" r="190" fill="#d9e4eb" opacity=".45"/>
   <circle cx="80" cy="1080" r="220" fill="#ecd8c6" opacity=".42"/>
 
-  <text x="80" y="92" class="sans title">中成律所 · RAG 架构</text>
+  <text x="80" y="92" class="sans title">ABC律师事务所 · RAG 架构</text>
   <text x="82" y="126" class="sans subtitle">Retrieval-Augmented Generation for Chinese Labor and Insurance Law</text>
 
   <rect x="80" y="165" width="1040" height="430" rx="28" fill="#fffdf9" opacity=".9" filter="url(#shadow)"/>
@@ -104,5 +104,5 @@
   <text x="885" y="1014" class="sans small">D1：记录问题与回答</text>
 
   <text x="80" y="1140" class="sans small">核心原则：先检索真实法条，再由大模型生成回答。</text>
-  <text x="1120" y="1140" text-anchor="end" class="mono small">ZHONGCHENG LAW FIRM</text>
+  <text x="1120" y="1140" text-anchor="end" class="mono small">ABC LAW FIRM</text>
 </svg>

@@ -1,5 +1,5 @@
 /**
- * ZHONGCHENG LAW FIRM (贵阳中成律师事务所) - CLIENT-SIDE LOGIC
+ * ABC LAW FIRM (ABC律师事务所) - CLIENT-SIDE LOGIC
  * Editorial Grid / Magazine Interactions, Scroll Reveal, Testimonials Slider, and Form Validation
  */
 
@@ -310,11 +310,11 @@ function showSuccessMessage(formElement, clientName) {
       </div>
       <h3 style="font-size: 1.6rem; color: var(--primary); font-family: var(--font-serif); font-weight: 900;">专访申请回执凭证</h3>
       <p style="font-size: 0.95rem; line-height: 1.7; color: var(--foreground-muted); max-width: 440px;">
-        尊敬的 <strong>${clientName}</strong>，我们已正式签收并归档您的咨询。中成律所主任办公室助理团队将在 <strong>30分钟内</strong> 致电与您确认时间，并对接相应专栏的执业合伙人律师进行首诊法理研判。
+        尊敬的 <strong>${clientName}</strong>，我们已正式签收并归档您的咨询。ABC律师事务所主任办公室助理团队将在 <strong>30分钟内</strong> 致电与您确认时间，并对接相应专栏的执业合伙人律师进行首诊法理研判。
       </p>
       
       <div class="coupon-signature-block" style="justify-content: flex-start; margin-top: var(--space-sm);">
-        <span>中成学术审阅委员会:</span>
+        <span>ABC学术审阅委员会:</span>
         <div class="signature-line" style="border-bottom-style: double; width: 120px; text-align: center; color: var(--accent); font-family: var(--font-serif); font-size: 0.9rem; line-height: 12px;">陈中成 印</div>
       </div>
       
@@ -630,7 +630,7 @@ function initLegalCalculator() {
 聘请费预估：${feeText}
 
 【具体事实陈述】：
-（请在此处写下您的项目/案情背景、纠纷概况与诉求，中成律所承诺对该信息实施红墙密级脱敏并严格保密）`;
+（请在此处写下您的项目/案情背景、纠纷概况与诉求，ABC律师事务所承诺对该信息实施红墙密级脱敏并严格保密）`;
         
         messageInput.focus();
         const inputEvent = new Event('input');
@@ -974,7 +974,7 @@ function initLaborLawChat() {
     appendChatMessage('user', query);
     chatInputField.value = '';
 
-    const loadingMessageElement = appendChatMessage('loading', '中成律师正在为您检索劳动法条并进行合规研判...');
+    const loadingMessageElement = appendChatMessage('loading', 'ABC律师正在为您检索劳动法条并进行合规研判...');
 
     try {
       let token = 'dummy-development-token';
