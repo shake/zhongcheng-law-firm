@@ -61,7 +61,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Decode user email from JWT token payload to bind subsequent questions
+    // Resolve the authenticated user's email for the audit record.
     let userEmail = 'anonymous@zhongchenglaw.com';
     try {
       const parts = token.split('.');
@@ -71,7 +71,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         if (payload.email) {
           userEmail = payload.email;
         } else if (payload.sub) {
-          userEmail = `clerk_user_id_${payload.sub}`;
+          const clerkEmail = env.CLERK_SECRET_KEY
+            ? await getClerkUserEmail(payload.sub, env.CLERK_SECRET_KEY)
+            : null;
+          userEmail = clerkEmail || `clerk_user_id_${payload.sub}`;
         }
       }
     } catch (e) {
@@ -477,6 +480,39 @@ async function verifyClerkToken(token: string, clerkSecretKey: string): Promise<
     return true;
   } catch {
     return false;
+  }
+}
+
+async function getClerkUserEmail(userId: string, clerkSecretKey: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(userId)}`, {
+      headers: {
+        Authorization: `Bearer ${clerkSecretKey}`,
+        Accept: 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to resolve Clerk user ${userId}: ${response.status}`);
+      return null;
+    }
+
+    const user = await response.json() as {
+      primary_email_address_id?: string;
+      email_addresses?: Array<{
+        id?: string;
+        email_address?: string;
+      }>;
+    };
+
+    const primaryEmail = user.email_addresses?.find(
+      (email) => email.id === user.primary_email_address_id
+    )?.email_address;
+
+    return primaryEmail || user.email_addresses?.[0]?.email_address || null;
+  } catch (error) {
+    console.error('Failed to resolve Clerk user email:', error);
+    return null;
   }
 }
 
