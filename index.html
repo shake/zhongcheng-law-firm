@@ -1,13 +1,69 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=/chat.html">
-  <title>劳动法咨询</title>
+  <title>ABC律师事务所 | 劳动法智能研判咨询归档系统</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Georgia, "Songti SC", "STSong", serif;
+      background: #f5f1e8;
+      color: #1e2b2b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #fffdf8 0, #f5f1e8 65%, #e9e2d5 100%);
+    }
+
+    main {
+      width: min(90vw, 680px);
+      padding: 56px 32px;
+      text-align: center;
+      border-top: 3px double #1e2b2b;
+      border-bottom: 3px double #1e2b2b;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 6vw, 3.6rem);
+      letter-spacing: 0.08em;
+      font-weight: 900;
+    }
+
+    p {
+      margin: 20px 0 36px;
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      letter-spacing: 0.12em;
+    }
+
+    a {
+      display: inline-block;
+      padding: 14px 30px;
+      color: #f5f1e8;
+      background: #1e2b2b;
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      transition: background-color 160ms ease, transform 160ms ease;
+    }
+
+    a:hover {
+      background: #8b2f2f;
+      transform: translateY(-2px);
+    }
+  </style>
 </head>
 <body>
-  <script>window.location.replace('/chat.html');</script>
-  <noscript><a href="/chat.html">进入劳动法咨询</a></noscript>
+  <main>
+    <h1>ABC律师事务所</h1>
+    <p>劳动法智能研判咨询归档系统</p>
+    <a href="/chat">进入劳动法咨询</a>
+  </main>
 </body>
 </html>
