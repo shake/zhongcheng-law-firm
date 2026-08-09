@@ -12,5 +12,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return accessResponse;
   }
 
-  return context.env.ASSETS.fetch(context.request);
+  const assetUrl = new URL("/admin-panel/", context.request.url);
+  return context.env.ASSETS.fetch(assetUrl);
 };
