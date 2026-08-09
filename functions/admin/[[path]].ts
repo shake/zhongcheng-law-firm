@@ -12,5 +12,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   const url = new URL("/admin.html", context.request.url);
-  return Response.redirect(url.toString(), 302);
+  const headers = new Headers();
+  const accessToken = context.request.headers.get("Cf-Access-Jwt-Assertion");
+  const cookie = context.request.headers.get("Cookie");
+  if (accessToken) headers.set("Cf-Access-Jwt-Assertion", accessToken);
+  if (cookie) headers.set("Cookie", cookie);
+  return fetch(url.toString(), { headers });
 };
