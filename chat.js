@@ -40,6 +40,7 @@ function initLaborLawChatRoom() {
   let signInAttempt = null;
   let isSignUpFlow = false;
   let targetEmail = '';
+  let historyLoadedFor = '';
 
   const isUserAuthenticated = () => {
     if (window.Clerk && window.Clerk.user) {
@@ -89,6 +90,7 @@ function initLaborLawChatRoom() {
           <p style="margin-top: 10px; font-size: 0.75rem; color: var(--foreground-muted);">系统已自动挂载最新《劳动法》数据库，您的提问将与您的邮箱安全绑定并仅作学术分析。</p>
         `;
       }
+      restoreChatHistory(email);
     }
   };
 
@@ -272,6 +274,7 @@ function initLaborLawChatRoom() {
 
     appendChatMessage('user', query);
     chatInputField.value = '';
+    saveChatHistory();
 
     const loadingMessageElement = appendChatMessage('loading', 'ABC律师正在为您检索劳动法条并进行合规研判...');
 
@@ -307,6 +310,7 @@ function initLaborLawChatRoom() {
           errText = await response.text();
         }
         appendChatMessage('ai', `⚠️ 研判失败：${errText}`);
+        saveChatHistory();
         return;
       }
 
@@ -326,12 +330,55 @@ function initLaborLawChatRoom() {
         aiMessageElement.innerHTML = formatMarkdown(fullResponseText);
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
+      saveChatHistory();
 
     } catch (error) {
       if (loadingMessageElement) loadingMessageElement.remove();
       appendChatMessage('ai', `⚠️ 网络连接错误：${error.message}`);
+      saveChatHistory();
     }
   });
+
+  function getHistoryStorageKey(email) {
+    return `labor-law-chat-history:${email.trim().toLowerCase()}`;
+  }
+
+  function saveChatHistory() {
+    const email = getAuthenticatedEmail();
+    if (!email) return;
+
+    const messages = [...chatMessages.querySelectorAll('.user-message, .ai-message')]
+      .map((message) => ({
+        sender: message.classList.contains('user-message') ? 'user' : 'ai',
+        html: message.innerHTML
+      }));
+
+    try {
+      localStorage.setItem(getHistoryStorageKey(email), JSON.stringify(messages));
+    } catch (error) {
+      console.warn('Unable to save chat history locally:', error);
+    }
+  }
+
+  function restoreChatHistory(email) {
+    if (!email || historyLoadedFor === email) return;
+
+    chatMessages.querySelectorAll('.user-message, .ai-message').forEach((message) => message.remove());
+    historyLoadedFor = email;
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(getHistoryStorageKey(email)) || '[]');
+      if (!Array.isArray(saved)) return;
+
+      saved.forEach((message) => {
+        if (!message || !['user', 'ai'].includes(message.sender) || typeof message.html !== 'string') return;
+        const element = appendChatMessage(message.sender, '');
+        element.innerHTML = message.html;
+      });
+    } catch (error) {
+      console.warn('Unable to restore chat history locally:', error);
+    }
+  }
 
   function appendChatMessage(sender, text) {
     const msgDiv = document.createElement('div');
