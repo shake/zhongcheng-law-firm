@@ -12,5 +12,5 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   const url = new URL("/admin.html", context.request.url);
-  return fetch(url.toString());
+  return Response.redirect(url.toString(), 302);
 };

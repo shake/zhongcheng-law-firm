@@ -278,7 +278,7 @@
       let currentLogs = [];
 
       // Load records on start
-      fetch('/api/admin/logs')
+      fetch('/admin/logs')
         .then(res => {
           if (!res.ok) throw new Error('接口状态异常');
           return res.json();
